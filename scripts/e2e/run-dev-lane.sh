@@ -9,10 +9,12 @@
 #   an oc context that may create a namespace and a RoleBinding (the lab's os-admin); start-console.sh also reads the
 #   API server URL from it
 # Optional: DEV_LANE_NAMESPACE (default os-lab-devlane), DEV_LANE_VIEW_NAMESPACE (default team-a),
-#   E2E_EVIDENCE_DIR (gets dev-lane-ss.txt, the listening sockets of ports 9000 and 9001).
+#   E2E_EVIDENCE_DIR (an absolute path outside the checkout; gets dev-lane-ss.txt, the listening sockets of ports 9000
+#   and 9001, beside the playwright/ folder that Playwright empties on each run).
 #
-# The ServiceAccount, its RoleBinding and its namespace are deleted on exit, whatever the result, which ends the
-# token; the token is passed to start-console.sh in its environment only and never printed.
+# The ServiceAccount's namespace, which ends the token, then its RoleBinding are deleted on exit, whatever the result;
+# a cleanup step that fails does not stop the others, and the script then exits 3 naming what is left. The token is
+# passed to start-console.sh in its environment only and never printed.
 set -euo pipefail
 
 : "${CONSOLE_IMAGE:?set CONSOLE_IMAGE to the console image to run}"
@@ -23,7 +25,21 @@ BINDING=devlane-view
 CONSOLE_PORT=9000
 PLUGIN_PORT=9001
 
-cd "$(dirname "$0")/../.."
+ROOT=$(cd "$(dirname "$0")/../.." && pwd -P)
+if [ -n "${E2E_EVIDENCE_DIR:-}" ]; then
+  case "$E2E_EVIDENCE_DIR" in
+    /*) ;;
+    *) E2E_EVIDENCE_DIR_BAD=1 ;;
+  esac
+  case "$(realpath -m "$E2E_EVIDENCE_DIR")/" in
+    "$ROOT"/*) E2E_EVIDENCE_DIR_BAD=1 ;;
+  esac
+  if [ -n "${E2E_EVIDENCE_DIR_BAD:-}" ]; then
+    echo "run-dev-lane.sh: E2E_EVIDENCE_DIR must be an absolute path outside the checkout" >&2
+    exit 2
+  fi
+fi
+cd "$ROOT"
 # start-console.sh hands every BRIDGE_ variable of its shell to the console, so the suite's console URL stays out.
 unset BRIDGE_BASE_ADDRESS BRIDGE_K8S_AUTH_BEARER_TOKEN
 
@@ -41,20 +57,43 @@ SERVER_PID=
 CONSOLE_PID=
 cleanup() {
   local rc=$?
+  local left=()
   for pid in "$CONSOLE_PID" "$SERVER_PID"; do
     if [ -n "$pid" ]; then
       kill -- "-$pid" 2> /dev/null || true
     fi
   done
-  local containers
-  containers=$(docker ps -q --filter "ancestor=$CONSOLE_IMAGE")
-  if [ -n "$containers" ]; then
-    docker stop $containers > /dev/null
+  # Deleting the namespace ends the token, so it goes first and nothing before it can stop it.
+  if ! oc delete namespace "$NAMESPACE" --ignore-not-found --wait=true > /dev/null; then
+    left+=("namespace $NAMESPACE")
+    echo "run-dev-lane.sh: FAILED to delete namespace $NAMESPACE; its ServiceAccount token stays valid until it is deleted" >&2
   fi
-  oc delete rolebinding "$BINDING" -n "$VIEW_NAMESPACE" --ignore-not-found > /dev/null
-  oc delete namespace "$NAMESPACE" --ignore-not-found --wait=true > /dev/null
+  if ! oc delete rolebinding "$BINDING" -n "$VIEW_NAMESPACE" --ignore-not-found > /dev/null; then
+    left+=("rolebinding $BINDING in $VIEW_NAMESPACE")
+    echo "run-dev-lane.sh: FAILED to delete rolebinding $BINDING in $VIEW_NAMESPACE" >&2
+  fi
+  # The console runs with --rm and may have removed itself once its process group was killed, so a failed stop of a
+  # container that is gone afterwards leaves nothing behind; only a container still listed counts.
+  local containers
+  if containers=$(docker ps -q --filter "ancestor=$CONSOLE_IMAGE"); then
+    if [ -n "$containers" ]; then
+      docker stop $containers > /dev/null 2>&1 || true
+      if ! containers=$(docker ps -q --filter "ancestor=$CONSOLE_IMAGE") || [ -n "$containers" ]; then
+        left+=("the console container of $CONSOLE_IMAGE")
+        echo "run-dev-lane.sh: FAILED to stop the console container of $CONSOLE_IMAGE" >&2
+      fi
+    fi
+  else
+    left+=("possibly the console container of $CONSOLE_IMAGE")
+    echo "run-dev-lane.sh: FAILED to list the containers of $CONSOLE_IMAGE" >&2
+  fi
   rm -rf "$LOGS"
-  echo "run-dev-lane.sh: stopped the dev server and the console; deleted rolebinding $BINDING in $VIEW_NAMESPACE and namespace $NAMESPACE"
+  if [ "${#left[@]}" -gt 0 ]; then
+    local IFS=';'
+    echo "run-dev-lane.sh: cleanup incomplete, delete by hand: ${left[*]}" >&2
+    exit 3
+  fi
+  echo "run-dev-lane.sh: stopped the dev server and the console; deleted namespace $NAMESPACE and rolebinding $BINDING in $VIEW_NAMESPACE"
   exit "$rc"
 }
 trap cleanup EXIT

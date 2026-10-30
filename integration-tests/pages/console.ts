@@ -117,20 +117,24 @@ export async function openDetailsItem(page: Page, path: string): Promise<Locator
 }
 
 /**
- * Signs in to LibreDB Studio through the cluster's OAuth login page the browser was sent to, allows the Authorize
- * Access page when the user meets it for the first time, and waits for Studio to know the user.
+ * Signs in to LibreDB Studio through the cluster's OAuth server the browser was sent to (its login page, or its
+ * identity-provider chooser when E2E_IDENTITY_PROVIDER names one), allows the Authorize Access page when the user meets
+ * it for the first time, and waits for Studio to know the user. The OAuth server serves that page under
+ * /oauth/authorize/approve, so the page is recognised by its Allow button, not by a path.
  */
 export async function signInToStudio(page: Page, username: string, password: string) {
-  await page.waitForURL((url) => url.pathname === '/login' && url.host.startsWith('oauth-'), {
-    timeout: 60_000,
-  });
+  await page.waitForURL((url) => url.host.startsWith('oauth-'), { timeout: 60_000 });
   await submitOpenShiftLogin(page, username, password);
   const studio = new URL(studioBase());
   const approve = page.locator('input[name="approve"]');
-  await page.waitForURL((url) => url.host === studio.host || url.pathname.endsWith('/authorize'), {
-    timeout: 60_000,
-  });
-  if (await approve.isVisible()) {
+  const atStudio = () => new URL(page.url()).host === studio.host;
+  await expect
+    .poll(async () => atStudio() || (await approve.isVisible()), {
+      message: `${username} reached neither LibreDB Studio nor the Authorize Access page`,
+      timeout: 60_000,
+    })
+    .toBe(true);
+  if (!atStudio()) {
     runLog(`${username} allowed the Authorize Access page for LibreDB Studio`);
     await approve.click();
   }

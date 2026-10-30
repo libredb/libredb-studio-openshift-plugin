@@ -43,7 +43,8 @@ export function studioBase(env: Env = process.env): string {
 
 /**
  * The one console error R-44 and R-45 allow: the plugin's first load after sign-in may fail with Unauthorized, and
- * waitForPlugin then reloads once. The warning beside it names the manifest fetch that failed the same way.
+ * waitForPlugin then reloads once. The warning beside it names the manifest fetch that failed the same way, and passes
+ * only together with that error.
  */
 const UNAUTHORIZED_LOAD =
   /\[loadAndEnablePlugin\] libredb-studio loadPlugin failed: .*Unauthorized/;
@@ -57,29 +58,40 @@ const UNAUTHORIZED_FETCH =
 const ALLOWED_WARNINGS = [
   /Unsatisfied version .* of shared singleton module (react|react-i18next|@openshift-console\/dynamic-plugin-sdk) /,
   /\[(DEPRECATION )?WARNING\] libredb-studio@.* was built for an older version of Console/,
-  UNAUTHORIZED_FETCH,
 ];
 
 const PLUGIN_NAME = 'libredb-studio';
 const PLUGIN_ASSETS = '/api/plugins/libredb-studio/';
 
+/** What R-45 makes of one browser console message; see judgeConsoleMessage. */
+export type ConsoleVerdict =
+  | 'ignored'
+  | 'allowed'
+  | 'unauthorized-load'
+  | 'unauthorized-fetch'
+  | 'forbidden';
+
 /**
  * What R-45 makes of one browser console message: an error that names the plugin is forbidden except the Unauthorized
- * load error, which the caller allows once around waitForPlugin's reload; a warning that names the plugin or comes from
- * its assets is forbidden unless R-45 lists it. Anything else is the console's or another plugin's.
+ * load error, which the caller allows once around waitForPlugin's reload, together with the failed manifest fetch
+ * warning that comes with it; any other warning that names the plugin or comes from its assets is forbidden unless
+ * R-45 lists it (allowed, and logged by the caller). Anything else is the console's or another plugin's (ignored).
  */
 export function judgeConsoleMessage(
   type: string,
   text: string,
   locationUrl: string,
-): 'allowed' | 'unauthorized-load' | 'forbidden' {
+): ConsoleVerdict {
   if (type === 'error' && text.includes(PLUGIN_NAME)) {
     return UNAUTHORIZED_LOAD.test(text) ? 'unauthorized-load' : 'forbidden';
   }
   if (type === 'warning' && (text.includes(PLUGIN_NAME) || locationUrl.includes(PLUGIN_ASSETS))) {
+    if (UNAUTHORIZED_FETCH.test(text)) {
+      return 'unauthorized-fetch';
+    }
     return ALLOWED_WARNINGS.some((allowed) => allowed.test(text)) ? 'allowed' : 'forbidden';
   }
-  return 'allowed';
+  return 'ignored';
 }
 
 /** Values that must never reach a report or the run log, should a console message ever carry one. */
@@ -97,9 +109,20 @@ export interface RecordedRequest {
 }
 
 /**
- * The access reviews among recorded requests that the plugin's rule constrains: a get of a Secret, or any review that
- * names one Secret. The console itself asks at start-up whether the user may create Secrets at all (no name, no
- * namespace) for its own menus; such a review is recorded, not constrained.
+ * The console's own start-up review: may the user create Secrets at all (no name, no namespace), for its own menus.
+ * It is the one review of Secrets that is recorded, not constrained.
+ */
+function isConsoleCreateReview(attributes: Record<string, unknown>): boolean {
+  return (
+    attributes.verb === 'create' &&
+    (attributes.name ?? '') === '' &&
+    (attributes.namespace ?? '') === ''
+  );
+}
+
+/**
+ * The access reviews among recorded requests that the plugin's rule constrains to a get of a shown row's Secret: every
+ * review of Secrets except the console's own start-up create review.
  */
 export function secretReviews(requests: readonly RecordedRequest[]): Record<string, unknown>[] {
   return requests
@@ -108,6 +131,22 @@ export function secretReviews(requests: readonly RecordedRequest[]): Record<stri
       (attributes): attributes is Record<string, unknown> =>
         attributes !== undefined &&
         attributes.resource === 'secrets' &&
-        (attributes.verb === 'get' || (attributes.name ?? '') !== ''),
+        !isConsoleCreateReview(attributes),
     );
+}
+
+/**
+ * Playwright's outputDir (failure screenshots): a subfolder of E2E_EVIDENCE_DIR, because Playwright empties its
+ * outputDir at the start of every run and would delete the evidence beside it; the gitignored results folder when
+ * E2E_EVIDENCE_DIR is unset. A relative E2E_EVIDENCE_DIR is refused: the run scripts change into the checkout.
+ */
+export function playwrightOutputDir(env: Env = process.env): string {
+  const dir = env.E2E_EVIDENCE_DIR;
+  if (dir === undefined || dir === '') {
+    return 'integration-tests/results/output';
+  }
+  if (!dir.startsWith('/')) {
+    throw new Error('E2E_EVIDENCE_DIR must be an absolute path outside the checkout');
+  }
+  return `${dir.replace(/\/+$/, '')}/playwright`;
 }

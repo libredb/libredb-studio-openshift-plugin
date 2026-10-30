@@ -41,6 +41,7 @@ test(
     const refusal = content.getByTestId('libredb-not-available-cnpg');
     await expect(refusal).toContainText('in all projects');
     await expect(refusal).toContainText('clusters.postgresql.cnpg.io');
+    await settled(content);
     await expect(content.locator(ROWS)).toHaveCount(0);
     await page.screenshot({ path: evidencePath('databases-dev-a-all-projects.png') });
     check();

@@ -1,5 +1,5 @@
 import { defineConfig, type Project } from '@playwright/test';
-import { authFile, type LabUserName } from './integration-tests/support/lab';
+import { authFile, type LabUserName, playwrightOutputDir } from './integration-tests/support/lab';
 
 // Three lab users share one cluster and the locator ConsoleLink, so the suite runs one test at a time. The suite runs
 // by hand on a lab machine through scripts/e2e/run-crc.sh (or scripts/e2e/run-dev-lane.sh), never in CI.
@@ -55,7 +55,8 @@ export default defineConfig({
   retries: 0,
   workers: 1,
   fullyParallel: false,
-  outputDir: process.env.E2E_EVIDENCE_DIR || 'integration-tests/results/output',
+  // Playwright empties outputDir at the start of every run, so it is never the evidence folder itself.
+  outputDir: playwrightOutputDir(),
   use: {
     baseURL: process.env.BRIDGE_BASE_ADDRESS ?? 'http://localhost:9000',
     viewport: { width: 1920, height: 1080 },

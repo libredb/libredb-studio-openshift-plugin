@@ -1,6 +1,7 @@
 import {
   judgeConsoleMessage,
   labUser,
+  playwrightOutputDir,
   secretReviews,
   studioBase,
 } from '../../integration-tests/support/rules';
@@ -88,7 +89,7 @@ describe('judgeConsoleMessage (R-45)', () => {
         'Failed to load resource: the server responded with a status of 502 (Bad Gateway)',
         CONSOLE,
       ),
-    ).toBe('allowed');
+    ).toBe('ignored');
   });
 
   it.each([
@@ -122,14 +123,14 @@ describe('judgeConsoleMessage (R-45)', () => {
     ).toBe('forbidden');
   });
 
-  it('allows the failed manifest fetch that comes with the allowed load error', () => {
+  it('flags the failed manifest fetch, which only the allowed load error may bring', () => {
     expect(
       judgeConsoleMessage(
         'warning',
         'consoleFetch failed for url https://console.example/api/plugins/libredb-studio/plugin-manifest.json e: Unauthorized',
         CONSOLE,
       ),
-    ).toBe('allowed');
+    ).toBe('unauthorized-fetch');
   });
 
   it('forbids any other warning that names the plugin or comes from its assets', () => {
@@ -152,14 +153,14 @@ describe('judgeConsoleMessage (R-45)', () => {
         'Unsatisfied version 5.0.1 from openshift-console of shared singleton module redux (required ^4.0.4)',
         'https://console.example/api/plugins/networking-console-plugin/plugin-entry.js',
       ),
-    ).toBe('allowed');
+    ).toBe('ignored');
   });
 
   it('ignores messages below warning level', () => {
     expect(judgeConsoleMessage('log', 'LIBREDB_STUDIO_CNPG was detected.', CONSOLE)).toBe(
-      'allowed',
+      'ignored',
     );
-    expect(judgeConsoleMessage('info', 'libredb-studio loaded', ENTRY)).toBe('allowed');
+    expect(judgeConsoleMessage('info', 'libredb-studio loaded', ENTRY)).toBe('ignored');
   });
 });
 
@@ -181,6 +182,16 @@ describe('secretReviews', () => {
     ]);
   });
 
+  it('keeps every other review of Secrets, such as an unnamed list, watch or delete', () => {
+    const list = { resource: 'secrets', verb: 'list', name: '', namespace: 'team-a' };
+    const watch = { resource: 'secrets', verb: 'watch' };
+    const deleteAll = { resource: 'secrets', verb: 'delete', namespace: 'team-b' };
+    const createInNamespace = { resource: 'secrets', verb: 'create', namespace: 'team-a' };
+    expect(
+      secretReviews([review(list), review(watch), review(deleteAll), review(createInNamespace)]),
+    ).toEqual([list, watch, deleteAll, createInNamespace]);
+  });
+
   it("records, not constrains, the console's own unnamed create review and other resources", () => {
     expect(
       secretReviews([
@@ -190,5 +201,34 @@ describe('secretReviews', () => {
         { method: 'GET', path: '/api/kubernetes/api/v1/namespaces/team-a/pods' },
       ]),
     ).toEqual([]);
+  });
+});
+
+describe('playwrightOutputDir', () => {
+  it("keeps Playwright's own output in a subfolder of E2E_EVIDENCE_DIR, which Playwright empties", () => {
+    expect(playwrightOutputDir({ E2E_EVIDENCE_DIR: '/evidence/e2e/helm' })).toBe(
+      '/evidence/e2e/helm/playwright',
+    );
+    expect(playwrightOutputDir({ E2E_EVIDENCE_DIR: '/evidence/e2e/helm/' })).toBe(
+      '/evidence/e2e/helm/playwright',
+    );
+  });
+
+  it.each([
+    ['unset', undefined],
+    ['empty', ''],
+  ])('uses the gitignored results folder when E2E_EVIDENCE_DIR is %s', (_case, value) => {
+    expect(playwrightOutputDir({ E2E_EVIDENCE_DIR: value })).toBe(
+      'integration-tests/results/output',
+    );
+  });
+
+  it('refuses a relative E2E_EVIDENCE_DIR, which would resolve inside the checkout', () => {
+    expect(() => playwrightOutputDir({ E2E_EVIDENCE_DIR: '.' })).toThrow(
+      'E2E_EVIDENCE_DIR must be an absolute path',
+    );
+    expect(() => playwrightOutputDir({ E2E_EVIDENCE_DIR: 'e2e/helm' })).toThrow(
+      'E2E_EVIDENCE_DIR must be an absolute path',
+    );
   });
 });

@@ -15,6 +15,7 @@ export {
   judgeConsoleMessage,
   labUser,
   type LabUserName,
+  playwrightOutputDir,
   type RecordedRequest,
   secretReviews,
   studioBase,
@@ -59,7 +60,12 @@ export function evidencePath(name: string): string {
 interface ConsoleWatch {
   forbidden: string[];
   unauthorizedLoads: number;
+  unauthorizedFetches: number;
+  /** How many Unauthorized load errors a waitForPlugin reload already answered. */
+  handledLoads: number;
   reloadedAndLoaded: boolean;
+  /** The run-log lines of allowed messages, written by the check: a listener may fire after the test ended. */
+  logLines: string[];
   onUnauthorized?: () => void;
 }
 
@@ -68,31 +74,58 @@ const watches = new WeakMap<Page, ConsoleWatch>();
 /**
  * Watches a page's browser console (R-45) and returns the check to call at the end of the test: it fails on any page
  * error, on any error that names libredb-studio, and on any warning that names libredb-studio or comes from the
- * plugin's own assets unless R-45 allows it. The Unauthorized load error of R-44 passes once, and only when
- * waitForPlugin then reloaded and found the plugin loaded.
+ * plugin's own assets unless R-45 allows it. The check writes each distinct allowed message to the run log. The Unauthorized
+ * load error of R-44, and the failed manifest fetch warning that comes with it, pass once, and only when waitForPlugin
+ * then reloaded and found the plugin loaded.
  */
 export function watchConsoleMessages(page: Page): () => void {
-  const watch: ConsoleWatch = { forbidden: [], unauthorizedLoads: 0, reloadedAndLoaded: false };
+  const watch: ConsoleWatch = {
+    forbidden: [],
+    unauthorizedLoads: 0,
+    unauthorizedFetches: 0,
+    handledLoads: 0,
+    reloadedAndLoaded: false,
+    logLines: [],
+  };
   watches.set(page, watch);
   page.on('pageerror', (error) => {
     watch.forbidden.push(`pageerror: ${scrub(String(error))}`);
   });
   page.on('console', (message) => {
-    const verdict = judgeConsoleMessage(message.type(), message.text(), message.location().url);
+    const text = message.text();
+    const verdict = judgeConsoleMessage(message.type(), text, message.location().url);
     if (verdict === 'unauthorized-load') {
       watch.unauthorizedLoads += 1;
+      watch.logLines.push(
+        `the console logged the Unauthorized plugin load error (R-44): ${scrub(text)}`,
+      );
       watch.onUnauthorized?.();
+    } else if (verdict === 'unauthorized-fetch') {
+      watch.unauthorizedFetches += 1;
+      watch.logLines.push(
+        `the console logged the Unauthorized manifest fetch warning: ${scrub(text)}`,
+      );
+    } else if (verdict === 'allowed') {
+      watch.logLines.push(`allowed console ${message.type()} (R-45): ${scrub(text)}`);
     } else if (verdict === 'forbidden') {
-      watch.forbidden.push(`${message.type()}: ${scrub(message.text())}`);
+      watch.forbidden.push(`${message.type()}: ${scrub(text)}`);
     }
   });
   return () => {
+    for (const line of new Set(watch.logLines)) {
+      runLog(line);
+    }
     const failures = [...watch.forbidden];
     if (watch.unauthorizedLoads > 1) {
       failures.push(`the Unauthorized plugin load error appeared ${watch.unauthorizedLoads} times`);
     } else if (watch.unauthorizedLoads === 1 && !watch.reloadedAndLoaded) {
       failures.push(
         'the Unauthorized plugin load error appeared without a reload that loaded the plugin',
+      );
+    }
+    if (watch.unauthorizedFetches > 0 && watch.unauthorizedLoads === 0) {
+      failures.push(
+        'the Unauthorized manifest fetch warning appeared without the allowed plugin load error',
       );
     }
     if (failures.length > 0) {
@@ -107,9 +140,9 @@ export const DATABASES_NAV = 'a[href="/libredb-studio/databases"]';
 const PLUGIN_WAIT_MS = 60_000;
 
 /**
- * Waits up to 60 seconds for the Databases nav item (R-44). When the console logged the Unauthorized plugin load error
- * first, it reloads once, records that in the run log and waits again; a second failure fails the test. Nothing else
- * retries.
+ * Waits up to 60 seconds for the Databases nav item (R-44). When the console logged an Unauthorized plugin load error
+ * that no earlier reload answered, it reloads once, records that in the run log and waits again; a second failure fails
+ * the test. Nothing else retries.
  */
 export async function waitForPlugin(page: Page): Promise<{ reloaded: boolean }> {
   const watch = watches.get(page);
@@ -120,7 +153,8 @@ export async function waitForPlugin(page: Page): Promise<{ reloaded: boolean }> 
   });
   if (watch !== undefined) {
     watch.onUnauthorized = unauthorized;
-    if (watch.unauthorizedLoads > 0) {
+    // An error logged before this call (page.goto may return after it) still counts; one a reload answered does not.
+    if (watch.unauthorizedLoads > watch.handledLoads) {
       unauthorized();
     }
   }
@@ -136,6 +170,9 @@ export async function waitForPlugin(page: Page): Promise<{ reloaded: boolean }> 
     return { reloaded: false };
   }
   runLog('the console logged "loadPlugin failed ... Unauthorized"; reloading once (R-44)');
+  if (watch !== undefined) {
+    watch.handledLoads = watch.unauthorizedLoads;
+  }
   await page.reload();
   await nav.waitFor({ state: 'attached', timeout: PLUGIN_WAIT_MS });
   if (watch !== undefined) {

@@ -1,5 +1,5 @@
 import * as fs from 'fs';
-import { expect, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 import {
   databasesPage,
   openDatabases,
@@ -12,6 +12,15 @@ import { evidencePath, LAB_DATABASES, labUser, studioBase, watchConsoleMessages 
 const { orders } = LAB_DATABASES;
 const ORDERS_SEED = `seed:${orders.id}`;
 const UNKNOWN_SEED = 'seed:k8s-cnpg-00000000000000000000000000000000';
+
+/** The ids of LibreDB Studio's managed connections, as the signed-in user of the page gets them. */
+async function managedConnections(page: Page): Promise<{ status: number; ids: string[] }> {
+  return page.evaluate(async () => {
+    const response = await fetch('/api/connections/managed');
+    const body = (await response.json()) as { connections?: { id: string }[] };
+    return { status: response.status, ids: (body.connections ?? []).map((c) => c.id) };
+  });
+}
 
 test(
   'dev-a opens orders in LibreDB Studio in a new tab',
@@ -38,16 +47,13 @@ test(
     const studio = await newPage;
     await expect.poll(() => documents.length).toBeGreaterThan(0);
     expect(documents[0]).toBe(`${studioBase()}/?connection=seed%3A${orders.id}`);
-    expect(await studio.evaluate(() => window.opener)).toBeNull();
     expect(page.url()).toBe(consoleUrl);
 
     const user = labUser('dev-a');
     await signInToStudio(studio, user.username, user.password);
-    const managed = await studio.evaluate(async () => {
-      const response = await fetch('/api/connections/managed');
-      const body = (await response.json()) as { connections?: { id: string }[] };
-      return { status: response.status, ids: (body.connections ?? []).map((c) => c.id) };
-    });
+    // Checked once the tab stopped redirecting: noopener leaves the opener null across its navigations.
+    expect(await studio.evaluate(() => window.opener)).toBeNull();
+    const managed = await managedConnections(studio);
     expect(managed.status).toBe(200);
     expect(managed.ids).toContain(ORDERS_SEED);
     await studio.screenshot({ path: evidencePath('open-dev-a-studio.png') });
@@ -73,7 +79,20 @@ test(
 test(
   'dev-b gets the not-found answer for orders by its link',
   { tag: '@dev-b' },
-  async ({ page }) => {
+  async ({ page, browser }) => {
+    // The orders id exists in this run: dev-a, who holds the connection, gets it listed. Without that, an empty
+    // discovery would answer both ids with the same 404 and the comparison below would prove nothing.
+    const granted = await browser.newContext({ ignoreHTTPSErrors: true });
+    const grantedPage = await granted.newPage();
+    await grantedPage.goto(studioBase());
+    const devA = labUser('dev-a');
+    await signInToStudio(grantedPage, devA.username, devA.password);
+    const grantedManaged = await managedConnections(grantedPage);
+    expect(grantedManaged.status).toBe(200);
+    expect(grantedManaged.ids).toContain(ORDERS_SEED);
+    await signOutOfStudio(grantedPage);
+    await granted.close();
+
     await page.goto(`${studioBase()}/?connection=seed%3A${orders.id}`);
     const user = labUser('dev-b');
     await signInToStudio(page, user.username, user.password);
@@ -98,7 +117,19 @@ test(
     expect(ordersAnswer.body).toBe(unknownAnswer.body);
     fs.writeFileSync(
       evidencePath('open-dev-b.json'),
-      `${JSON.stringify({ [ORDERS_SEED]: ordersAnswer, [UNKNOWN_SEED]: unknownAnswer }, null, 2)}\n`,
+      `${JSON.stringify(
+        {
+          grantedUser: {
+            user: 'dev-a',
+            managedStatus: grantedManaged.status,
+            listsOrders: grantedManaged.ids.includes(ORDERS_SEED),
+          },
+          [ORDERS_SEED]: ordersAnswer,
+          [UNKNOWN_SEED]: unknownAnswer,
+        },
+        null,
+        2,
+      )}\n`,
     );
     await signOutOfStudio(page);
   },

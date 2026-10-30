@@ -67,18 +67,21 @@ yarn playwright install chromium
 LAB_USERS_ENV=<file defining dev_a_PASSWORD, dev_b_PASSWORD and os_admin_PASSWORD> \
 BRIDGE_BASE_ADDRESS=https://console-openshift-console.apps-crc.testing \
 STUDIO_URL=https://<LibreDB Studio host> \
-E2E_EVIDENCE_DIR=<a folder outside the checkout> \
+E2E_EVIDENCE_DIR=<an absolute path outside the checkout> \
 yarn test:e2e
 ```
 
 `scripts/e2e/run-crc.sh` reads the passwords inside its own process and hands them to the test process only.
 It needs an `oc` context that may list and delete OAuth access tokens and refuses to start without one.
-On exit, whatever the result, it deletes `integration-tests/.auth/`, which holds the users' console sessions, and the users' console OAuth access tokens, plus every other OAuth access token of theirs created during the run, such as LibreDB Studio's sign-in, because signing out of the console leaves its token valid.
+On exit, whatever the result and also when it is interrupted or terminated, it stops the test process first, then deletes `integration-tests/.auth/`, which holds the users' console sessions, and the users' console OAuth access tokens, plus every other OAuth access token of theirs that did not exist before the run, such as LibreDB Studio's sign-in, because signing out of the console leaves its token valid.
+It then fails if a token value is in `E2E_EVIDENCE_DIR` or `integration-tests/results`, naming the files.
+Both scripts refuse an `E2E_EVIDENCE_DIR` that is relative or inside the checkout.
+The evidence goes into that folder and Playwright's own output, such as a failed test's screenshot, into its `playwright/` subfolder, which Playwright empties at the start of every run.
 Traces, videos and the page snapshot of a failed test are off, and the request records keep the method, the URL path and the access review attributes only.
 With `E2E_LOCATOR_REMOVED=1`, the `locator-removed` project checks the Databases page after Studio's console link was deleted; run it alone with `--project=locator-removed`, and never where an operator recreates the link.
 
 `scripts/e2e/run-dev-lane.sh` runs the `dev-lane` project against the development console instead, with `CONSOLE_IMAGE` naming the console image.
-It creates a ServiceAccount that may only view `team-a`, runs `yarn start` and `yarn start-console` with a one-hour token of it, checks that ports 9000 and 9001 listen on 127.0.0.1 only, and on exit deletes the ServiceAccount's namespace and RoleBinding, which ends the token.
+It creates a ServiceAccount that may only view `team-a`, runs `yarn start` and `yarn start-console` with a one-hour token of it, checks that ports 9000 and 9001 listen on 127.0.0.1 only, and on exit deletes the ServiceAccount's namespace, which ends the token, and its RoleBinding; if a cleanup step fails, the others still run and the script exits non-zero naming what is left.
 A 4.19 console image run against a newer cluster checks the 4.19 console build only, not a 4.19 cluster; [RELEASING.md](RELEASING.md) lists the images the lane was run with.
 
 ## Image

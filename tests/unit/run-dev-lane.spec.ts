@@ -55,7 +55,18 @@ function run(env: Record<string, string> = {}, omit: string[] = []): Run {
     fs.writeFileSync(file, `#!${BASH}\n${body}\n`, { mode: 0o755 });
   };
   const stub = (name: string, body: string) => write(path.join(bin, name), body);
-  for (const tool of ['grep', 'awk', 'cat', 'dirname', 'mktemp', 'rm', 'mkdir', 'seq', 'sleep']) {
+  for (const tool of [
+    'grep',
+    'awk',
+    'cat',
+    'dirname',
+    'mktemp',
+    'rm',
+    'mkdir',
+    'seq',
+    'sleep',
+    'realpath',
+  ]) {
     fs.symlinkSync(which(tool), path.join(bin, tool));
   }
   fs.symlinkSync(which('setsid'), path.join(bin, 'setsid'));
@@ -69,7 +80,9 @@ function run(env: Record<string, string> = {}, omit: string[] = []): Run {
       '  "get namespace "*) [ -n "$OC_NAMESPACE_EXISTS" ] ;;',
       '  "get consolelink libredb-studio") [ "$OC_LINK" = present ] ;;',
       `  "create token devlane -n os-lab-devlane --duration=1h") echo ${TOKEN} ;;`,
-      '  create*|delete*) ;;',
+      '  "delete rolebinding "*) [ "$OC_DELETE_FAILS" != rolebinding ] ;;',
+      '  "delete namespace "*) [ "$OC_DELETE_FAILS" != namespace ] ;;',
+      '  create*) ;;',
       '  *) exit 1 ;;',
       'esac',
     ].join('\n'),
@@ -78,7 +91,11 @@ function run(env: Record<string, string> = {}, omit: string[] = []): Run {
     'docker',
     [
       `echo "$*" >> "${dir}/docker"`,
-      `case "$1" in ps) cat "${dir}/running" 2> /dev/null || true ;; esac`,
+      'case "$1" in',
+      `  ps) cat "${dir}/running" 2> /dev/null || true ;;`,
+      // The console runs with --rm: once stopped, or once its process group is killed, the container is gone.
+      `  stop) [ "$DOCKER_STOP" = fails-stays ] || rm -f "${dir}/running"; [ -z "$DOCKER_STOP" ] ;;`,
+      'esac',
     ].join('\n'),
   );
   stub(
@@ -116,6 +133,7 @@ function run(env: Record<string, string> = {}, omit: string[] = []): Run {
     BRIDGE_BASE_ADDRESS: 'https://console.from.the.caller',
     ...env,
   };
+  fullEnv.E2E_EVIDENCE_DIR = fullEnv.E2E_EVIDENCE_DIR.replace('<tree>', tree);
   for (const name of omit) {
     delete fullEnv[name];
   }
@@ -151,9 +169,10 @@ const SETUP = [
   'create serviceaccount devlane -n os-lab-devlane',
   'create rolebinding devlane-view -n team-a --clusterrole=view --serviceaccount=os-lab-devlane:devlane',
 ];
+// The namespace goes first: deleting it ends the token, whatever else fails.
 const TEARDOWN = [
-  'delete rolebinding devlane-view -n team-a --ignore-not-found',
   'delete namespace os-lab-devlane --ignore-not-found --wait=true',
+  'delete rolebinding devlane-view -n team-a --ignore-not-found',
 ];
 
 describe('scripts/e2e/run-dev-lane.sh', () => {
@@ -219,6 +238,43 @@ describe('scripts/e2e/run-dev-lane.sh', () => {
     const result = run();
     expect(result.docker).toContain(`ps -q --filter ancestor=${IMAGE}`);
     expect(result.docker).toContain('stop c0ffee');
+  });
+
+  it('accepts a docker stop that failed because the container already removed itself', () => {
+    const result = run({ DOCKER_STOP: 'fails-gone' });
+    expect(result.status).toBe(0);
+    expect(result.oc.slice(-2)).toEqual(TEARDOWN);
+  });
+
+  it('still deletes the namespace and the RoleBinding when the console container survives', () => {
+    const result = run({ DOCKER_STOP: 'fails-stays' });
+    expect(result.status).toBe(3);
+    expect(result.output).toContain(`FAILED to stop the console container of ${IMAGE}`);
+    expect(result.oc).toEqual(expect.arrayContaining(TEARDOWN));
+  });
+
+  it.each([
+    ['rolebinding', 'FAILED to delete rolebinding devlane-view in team-a'],
+    ['namespace', 'FAILED to delete namespace os-lab-devlane'],
+  ])('carries on and fails naming what is left when deleting the %s fails', (what, message) => {
+    const result = run({ OC_DELETE_FAILS: what });
+    expect(result.status).toBe(3);
+    expect(result.output).toContain(message);
+    expect(result.oc.slice(-2)).toEqual(TEARDOWN);
+    expect(result.docker).toContain('stop c0ffee');
+  });
+
+  it.each([
+    ['a relative path', 'evidence'],
+    ['a path inside the checkout', '<tree>/evidence'],
+  ])('refuses E2E_EVIDENCE_DIR as %s and touches nothing', (_case, value) => {
+    const result = run({ E2E_EVIDENCE_DIR: value });
+    expect(result.status).toBe(2);
+    expect(result.output).toContain(
+      'E2E_EVIDENCE_DIR must be an absolute path outside the checkout',
+    );
+    expect(result.oc).toEqual([]);
+    expect(result.playwright).toBe('');
   });
 
   it('refuses to start while a container of the console image runs', () => {
