@@ -26,7 +26,7 @@ spec:
         - name: {{ template "openshift-console-plugin.name" . }}
           image: {{ required "plugin.image is required: the plugin image, pinned by digest" .Values.plugin.image }}
           ports:
-            - containerPort: {{ .Values.plugin.port }}
+            - containerPort: {{ include "openshift-console-plugin.port" . }}
               protocol: TCP
           imagePullPolicy: {{ .Values.plugin.imagePullPolicy }}
           {{- if and (.Values.plugin.securityContext.enabled) (.Values.plugin.containerSecurityContext) }}

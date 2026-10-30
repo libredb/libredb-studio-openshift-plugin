@@ -13,5 +13,5 @@ spec:
     service:
       name: {{ template "openshift-console-plugin.name" . }}
       namespace: {{ .Release.Namespace }}
-      port: {{ .Values.plugin.port }}
-      basePath: {{ .Values.plugin.basePath }}
+      port: {{ include "openshift-console-plugin.port" . }}
+      basePath: /

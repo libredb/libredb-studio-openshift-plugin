@@ -43,6 +43,19 @@ Create the name secret containing the certificate
 {{- end }}
 
 {{/*
+The image bakes nginx.conf, which listens on 9443 and serves from /, so a port or base path value cannot take effect
+*/}}
+{{- define "openshift-console-plugin.port" -}}
+{{- if hasKey .Values.plugin "port" }}
+{{- fail "plugin.port is not a value of this chart: the image's baked nginx.conf listens on 9443" }}
+{{- end }}
+{{- if hasKey .Values.plugin "basePath" }}
+{{- fail "plugin.basePath is not a value of this chart: the image's baked nginx.conf serves the plugin from /" }}
+{{- end }}
+{{- 9443 }}
+{{- end }}
+
+{{/*
 The plugin's own ServiceAccount, never the namespace's default one
 */}}
 {{- define "openshift-console-plugin.serviceAccountName" -}}

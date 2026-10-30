@@ -8,7 +8,6 @@ plugin:
   imagePullPolicy: IfNotPresent
   imagePullSecrets: []
   replicas: 2
-  port: 9443
   securityContext:
     enabled: true
   podSecurityContext:
@@ -27,7 +26,6 @@ plugin:
     requests:
       cpu: 10m
       memory: 50Mi
-  basePath: /
   certificateSecretName: ""
   serviceAccount:
     annotations: {}

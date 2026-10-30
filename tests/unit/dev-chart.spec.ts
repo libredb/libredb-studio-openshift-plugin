@@ -155,6 +155,27 @@ describeWithHelm('the development chart', () => {
     });
   });
 
+  // The image bakes nginx.conf, which listens on 9443 and serves from /, so the chart offers neither as a value.
+  it('serves on the port and base path the baked configuration listens on', () => {
+    const service = only('Service').spec as {
+      ports: { name: string; port: number; targetPort: number }[];
+    };
+    expect(service.ports).toEqual([
+      { name: '9443-tcp', protocol: 'TCP', port: 9443, targetPort: 9443 },
+    ]);
+    expect(pod().containers[0]).toHaveProperty('ports', [{ containerPort: 9443, protocol: 'TCP' }]);
+  });
+
+  it.each([
+    ['plugin.port=8443', 'plugin.port'],
+    ['plugin.basePath=/plugin/', 'plugin.basePath'],
+  ])('refuses %s, which the baked configuration cannot follow', (set, value) => {
+    const result = helm('template', 'lab', CHART, '--set', 'plugin.image=img', '--set', set);
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain(value);
+    expect(result.stderr).toContain('nginx.conf');
+  });
+
   it('refuses to render without an image, naming the value', () => {
     const result = helm('template', 'lab', CHART);
     expect(result.status).not.toBe(0);
@@ -180,12 +201,14 @@ describe('the development chart files', () => {
     );
   });
 
-  it('offers no value for a console patch Job or an nginx configuration', () => {
+  it('offers no value for a console patch Job, an nginx configuration, a port or a base path', () => {
     const values = parse(fs.readFileSync(path.join(CHART, 'values.yaml'), 'utf-8')) as {
       plugin: Record<string, unknown>;
     };
     expect(values.plugin).not.toHaveProperty('jobs');
     expect(values.plugin).not.toHaveProperty('patcherServiceAccount');
+    expect(values.plugin).not.toHaveProperty('port');
+    expect(values.plugin).not.toHaveProperty('basePath');
     expect(fs.readdirSync(path.join(CHART, 'templates')).sort()).toEqual([
       '_helpers.tpl',
       'consoleplugin.yaml',
