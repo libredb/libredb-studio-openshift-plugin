@@ -90,7 +90,10 @@
     "version": "0.1.0",
     "displayName": "LibreDB Studio",
     "description": "Lists the cluster's databases and opens them in LibreDB Studio.",
-    "exposedModules": {},
+    "exposedModules": {
+      "DatabasesPage": "./components/DatabasesPage",
+      "DatabaseDetailsItem": "./components/DatabaseDetailsItem"
+    },
     "dependencies": {
       "@console/pluginAPI": ">=4.19.0-0"
     }

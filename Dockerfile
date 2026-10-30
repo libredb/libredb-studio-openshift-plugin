@@ -1,15 +1,63 @@
-FROM registry.access.redhat.com/ubi9/nodejs-22:latest@sha256:b66295c1b3ef39cc5adcf7f0459f7ec9111014e1dce8f565ed4339c760862418 AS build
-USER root
-ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
-RUN command -v yarn || (npm i -g corepack && corepack enable)
+# The build stage runs on the build platform: its output is architecture-independent JavaScript, and the runtime stage
+# has no RUN instruction, so a multi-platform build needs no emulator.
+FROM --platform=$BUILDPLATFORM registry.access.redhat.com/ubi9/nodejs-22:latest@sha256:b66295c1b3ef39cc5adcf7f0459f7ec9111014e1dce8f565ed4339c760862418 AS build
 
-ADD . /usr/src/app
-WORKDIR /usr/src/app
-RUN yarn install --immutable && yarn build
+ARG VERSION
+WORKDIR /opt/app-root/src
+
+# The image labels carry VERSION, so a build without it, or with one that differs from package.json, stops here.
+COPY --chown=1001:0 package.json yarn.lock .yarnrc.yml ./
+RUN expected="$(node -p "require('./package.json').version")" \
+  && if [ -z "${VERSION:-}" ] || [ "${VERSION}" != "${expected}" ]; then \
+    echo "Pass --build-arg VERSION=${expected}, the version in package.json (got '${VERSION:-}')." >&2; \
+    exit 1; \
+  fi
+
+# The committed Yarn release installs from the lockfile; .yarnrc.yml sets enableScripts: false, so no dependency's
+# install script runs in the stage whose bundle every console session loads.
+COPY --chown=1001:0 .yarn/releases .yarn/releases
+RUN node .yarn/releases/yarn-4.13.0.cjs install --immutable
+
+COPY --chown=1001:0 . .
+RUN node .yarn/releases/yarn-4.13.0.cjs build
 
 FROM registry.access.redhat.com/ubi9/nginx-120:latest@sha256:f96eae25ead81d4ab0233b1051b2d65881f2cf660b16e80c2e7b76ef1e966051
 
-COPY --from=build /usr/src/app/dist /usr/share/nginx/html
+ARG VERSION
+LABEL name="libredb-studio-openshift-plugin" \
+  vendor="LibreDB" \
+  version="${VERSION}" \
+  release="${VERSION}" \
+  summary="LibreDB Studio plugin for the OpenShift web console" \
+  description="Serves the OpenShift web console dynamic plugin that lists the cluster's databases and opens them in LibreDB Studio." \
+  maintainer="LibreDB <info@sekoya.tech>" \
+  url="https://github.com/libredb/libredb-studio-openshift-plugin" \
+  io.k8s.display-name="LibreDB Studio console plugin" \
+  io.k8s.description="Serves the OpenShift web console dynamic plugin that lists the cluster's databases and opens them in LibreDB Studio." \
+  io.openshift.expose-services="9443:https" \
+  io.openshift.tags="openshift,console-plugin,libredb" \
+  org.opencontainers.image.source="https://github.com/libredb/libredb-studio-openshift-plugin"
+
+# The base sets these for its own build and for s2i; the plugin image is not that build and supports no s2i. A release
+# sets the OCI created and revision labels from its own build.
+LABEL build-date="" \
+  vcs-ref="" \
+  vcs-type="" \
+  org.opencontainers.image.created="" \
+  org.opencontainers.image.revision="" \
+  usage="" \
+  help="" \
+  io.openshift.s2i.scripts-url="" \
+  io.s2i.scripts-url=""
+
+# The base image's /usr/share/nginx/html holds its welcome and error pages, so the bundle gets a directory of its own and
+# the server answers 404 for anything that is not the build output.
+COPY --from=build /opt/app-root/src/dist /usr/share/nginx/plugin
+COPY nginx.conf /etc/nginx/nginx.conf
+COPY LICENSE NOTICE /licenses/
+
+EXPOSE 9443
 USER 1001
 
-ENTRYPOINT ["nginx", "-g", "daemon off;"]
+# The error log goes to standard error from the start, so nginx never opens a log file on the read-only root.
+ENTRYPOINT ["nginx", "-e", "/dev/stderr", "-g", "daemon off;"]

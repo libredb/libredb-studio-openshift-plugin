@@ -1,5 +1,5 @@
 apiVersion: v2
 name: openshift-console-plugin
-description: A Helm chart for Kubernetes
+description: Development and lab chart for the LibreDB Studio OpenShift console plugin; never published
 type: application
 version: 0.1.0

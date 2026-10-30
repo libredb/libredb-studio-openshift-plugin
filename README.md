@@ -18,6 +18,9 @@ The chart under `charts/` in this repository is for development and the lab only
 | Crunchy PGO | `postgresclusters.postgres-operator.crunchydata.com` |
 | MongoDB Community | `mongodbcommunity.mongodbcommunity.mongodb.com` |
 
+The plugin adds a LibreDB Studio item to the details page of each supported resource, the page that Search and the resource's own list open (`/k8s/ns/<namespace>/<group>~<version>~<kind>/<name>`).
+The console does not render plugin details items on the operand details page that Installed Operators opens, so the item is not shown there; the Databases page and the generic details page list the same database.
+
 ## Compatibility
 
 | OpenShift | Loads the plugin | Tested |
@@ -53,6 +56,12 @@ yarn test:manifest    # checks dist/plugin-manifest.json after yarn build
 To try the plugin against a cluster, run `yarn start` for the dev server on 127.0.0.1:9001 and `yarn start-console` for a console in a container on 127.0.0.1:9000.
 That console runs with sign-in disabled and acts with the bearer token it is given, so it listens on the loopback interface only.
 Preset `BRIDGE_K8S_AUTH_BEARER_TOKEN` to a short-lived token of a view-only account; without it the script takes the token of the current `oc` context, which must never be a cluster administrator's.
+
+## Image
+
+Each release publishes `ghcr.io/libredb/libredb-studio-openshift-plugin:<version>` for `linux/amd64` and `linux/arm64`, and its release notes name the image by digest.
+The image serves the plugin with nginx on TLS port 9443, runs as a non-root user with a read-only root, and never logs the `Authorization` header or a cookie; its access log also leaves out every other header and the query string.
+LibreDB Studio's chart and operator pin it by digest; [RELEASING.md](RELEASING.md) describes the release, the image and its smoke test.
 
 ## Licence
 

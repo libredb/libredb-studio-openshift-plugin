@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { KIND_ROWS } from '../../src/contract/kinds';
 
 const ROOT = path.resolve(__dirname, '../..');
 const read = <T>(file: string) => JSON.parse(fs.readFileSync(path.join(ROOT, file), 'utf-8')) as T;
@@ -52,6 +53,60 @@ describe('the built plugin manifest', () => {
     for (const script of manifest.loadScripts) {
       expect(fs.existsSync(path.join(ROOT, 'dist', script))).toBe(true);
     }
+  });
+
+  it('routes the Databases page, adds its navigation item and declares the four kind flags', () => {
+    expect(pkg.consolePlugin.exposedModules).toEqual({
+      DatabasesPage: './components/DatabasesPage',
+      DatabaseDetailsItem: './components/DatabaseDetailsItem',
+    });
+    expect(manifest.extensions.filter((e) => e.type === 'console.page/route')).toEqual([
+      {
+        type: 'console.page/route',
+        properties: {
+          path: '/libredb-studio/databases',
+          exact: true,
+          component: { $codeRef: 'DatabasesPage' },
+        },
+      },
+    ]);
+    expect(manifest.extensions.filter((e) => e.type === 'console.navigation/href')).toEqual([
+      {
+        type: 'console.navigation/href',
+        properties: {
+          id: 'libredb-studio-databases',
+          name: '%plugin__libredb-studio~Databases%',
+          href: '/libredb-studio/databases',
+          section: 'home',
+        },
+      },
+    ]);
+    expect(manifest.extensions.filter((e) => e.type === 'console.flag/model')).toHaveLength(4);
+    expect(new Set(manifest.extensions.map((e) => e.type))).toEqual(
+      new Set([
+        'console.flag/model',
+        'console.page/route',
+        'console.navigation/href',
+        'console.resource/details-item',
+      ]),
+    );
+  });
+
+  it('adds the LibreDB Studio details item to the details page of each supported kind', () => {
+    expect(manifest.extensions.filter((e) => e.type === 'console.resource/details-item')).toEqual(
+      KIND_ROWS.map((row) => ({
+        type: 'console.resource/details-item',
+        properties: {
+          model: { group: row.group, version: row.version, kind: row.kind },
+          id: `libredb-studio-details-${row.slug}`,
+          column: 'right',
+          title: '%plugin__libredb-studio~LibreDB Studio%',
+          description:
+            '%plugin__libredb-studio~Only databases in the namespaces your administrator chose for discovery open; any other one opens as not found.%',
+          component: { $codeRef: 'DatabaseDetailsItem' },
+        },
+      })),
+    );
   });
 
   it('uses no extension type the 4.22 console removed', () => {
