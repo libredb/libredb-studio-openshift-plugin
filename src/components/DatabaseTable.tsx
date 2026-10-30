@@ -8,11 +8,11 @@ import type { StudioLocator } from '../hooks/useStudioLocator';
 import { OpenInStudio } from './OpenInStudio';
 
 /**
- * Rows per page. Only the rows of the current page mount OpenInStudio, so one page view sends at most this many
- * access reviews however many database users a resource lists.
+ * Rows per page. Only the rows of the current page mount OpenInStudio, so one page view sends at most 50 access
+ * reviews however many database users a resource lists; no option above 50 is offered (ruling L39).
  */
 const DEFAULT_PER_PAGE = 50;
-const PER_PAGE_OPTIONS = [20, 50, 100].map((value) => ({ title: String(value), value }));
+const PER_PAGE_OPTIONS = [20, 50].map((value) => ({ title: String(value), value }));
 
 /** A React key per row: rows that share a connection id (marked duplicate_id) get a counter after the first. */
 function rowKeys(rows: readonly DatabaseRow[]): string[] {

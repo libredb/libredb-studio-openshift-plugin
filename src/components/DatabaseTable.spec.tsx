@@ -91,7 +91,7 @@ describe('DatabaseTable', () => {
     expect(reviewed()).toEqual(rows.slice(100).map((row) => row.secretName));
   });
 
-  it('offers 20, 50 and 100 rows per page and returns to page 1 on a change', () => {
+  it('offers 20 and 50 rows per page, never more, and returns to page 1 on a change', () => {
     const rows = manyUserRows('team-a', 'pg', 120);
     render(<DatabaseTable rows={rows} locator={READY} />);
     fireEvent.click(screen.getAllByRole('button', { name: 'Go to next page' })[0]);
@@ -99,10 +99,9 @@ describe('DatabaseTable', () => {
     expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
       '20 per page',
       '50 per page',
-      '100 per page',
     ]);
-    fireEvent.click(screen.getByRole('menuitem', { name: '100 per page' }));
-    expect(screen.getAllByTestId(/^libredb-row-/)).toHaveLength(100);
+    fireEvent.click(screen.getByRole('menuitem', { name: '20 per page' }));
+    expect(screen.getAllByTestId(/^libredb-row-/)).toHaveLength(20);
     expect(screen.getByTestId(`libredb-row-${rows[0].connectionId}`)).toBeInTheDocument();
   });
 
