@@ -45,7 +45,7 @@ const allSteps = files.flatMap(steps);
  */
 const pinLine = (action: string) =>
   new RegExp(
-    `^\\s*(-\\s+)?uses: ${action.replace(/[/.-]/g, '\\$&')}@[0-9a-f]{40} # v\\d+\\.\\d+\\.\\d+$`,
+    `^\\s*(-\\s+)?uses: ${action.replace(/[.*+?^${}()|[\]\\/-]/g, '\\$&')}@[0-9a-f]{40} # v\\d+\\.\\d+\\.\\d+$`,
     'm',
   );
 /** The action a step uses, without its commit, once that commit has the shape of a full SHA. */
