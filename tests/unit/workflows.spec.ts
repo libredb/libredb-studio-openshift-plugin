@@ -128,6 +128,34 @@ describe('GitHub workflows', () => {
     expect(run).toContain('cmp ');
   });
 
+  describe('the check job', () => {
+    const checkSteps = workflow('ci.yml').jobs.check?.steps ?? [];
+    const index = (predicate: (candidate: Step) => boolean) => checkSteps.findIndex(predicate);
+
+    // dev-chart.spec.ts renders the development chart with helm and fails under CI when helm is missing.
+    it('sets up helm 4.1.3 before the unit tests', () => {
+      const helm = index((candidate) =>
+        (candidate.uses ?? '').startsWith(
+          'azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310',
+        ),
+      );
+      expect(helm).toBeGreaterThan(-1);
+      expect(checkSteps[helm].with).toEqual({ version: 'v4.1.3' });
+      expect(source('ci.yml')).toContain(
+        'uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1',
+      );
+      expect(helm).toBeLessThan(index((candidate) => candidate.run === 'yarn test:coverage'));
+    });
+
+    it('lints the development chart strictly', () => {
+      expect(
+        checkSteps.some(
+          (candidate) => candidate.run === 'helm lint charts/openshift-console-plugin --strict',
+        ),
+      ).toBe(true);
+    });
+  });
+
   describe('the image job', () => {
     const job = workflow('ci.yml').jobs.image;
     const runs = (job?.steps ?? []).map((step) => step.run ?? '');

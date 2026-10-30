@@ -14,15 +14,17 @@ spec:
   template:
     metadata:
       labels:
-            {{- include "openshift-console-plugin.labels" . | nindent 8 }}
+        {{- include "openshift-console-plugin.labels" . | nindent 8 }}
     spec:
+      serviceAccountName: {{ include "openshift-console-plugin.serviceAccountName" . }}
+      automountServiceAccountToken: false
       {{- with .Values.plugin.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       containers:
         - name: {{ template "openshift-console-plugin.name" . }}
-          image: {{ required "Plugin image must be specified!" .Values.plugin.image }}
+          image: {{ required "plugin.image is required: the plugin image, pinned by digest" .Values.plugin.image }}
           ports:
             - containerPort: {{ .Values.plugin.port }}
               protocol: TCP
@@ -36,19 +38,15 @@ spec:
             - name: {{ template "openshift-console-plugin.certificateSecret" . }}
               readOnly: true
               mountPath: /var/cert
-            - name: nginx-conf
-              readOnly: true
-              mountPath: /etc/nginx/nginx.conf
-              subPath: nginx.conf
+            - name: tmp
+              mountPath: /tmp
       volumes:
         - name: {{ template "openshift-console-plugin.certificateSecret" . }}
           secret:
             secretName: {{ template "openshift-console-plugin.certificateSecret" . }}
             defaultMode: 420
-        - name: nginx-conf
-          configMap:
-            name: {{ template "openshift-console-plugin.name" . }}
-            defaultMode: 420
+        - name: tmp
+          emptyDir: {}
       restartPolicy: Always
       dnsPolicy: ClusterFirst
       {{- if and (.Values.plugin.securityContext.enabled) (.Values.plugin.podSecurityContext) }}

@@ -43,30 +43,8 @@ Create the name secret containing the certificate
 {{- end }}
 
 {{/*
-Create the name of the service account to use
+The plugin's own ServiceAccount, never the namespace's default one
 */}}
 {{- define "openshift-console-plugin.serviceAccountName" -}}
-{{- if .Values.plugin.serviceAccount.create }}
-{{- default (include "openshift-console-plugin.name" .) .Values.plugin.serviceAccount.name }}
-{{- else }}
-{{- default "default" .Values.plugin.serviceAccount.name }}
-{{- end }}
-{{- end }}
-
-{{/*
-Create the name of the patcher
-*/}}
-{{- define "openshift-console-plugin.patcherName" -}}
-{{- printf "%s-patcher" (include "openshift-console-plugin.name" .) }}
-{{- end }}
-
-{{/*
-Create the name of the service account to use
-*/}}
-{{- define "openshift-console-plugin.patcherServiceAccountName" -}}
-{{- if .Values.plugin.patcherServiceAccount.create }}
-{{- default (printf "%s-patcher" (include "openshift-console-plugin.name" .)) .Values.plugin.patcherServiceAccount.name }}
-{{- else }}
-{{- default "default" .Values.plugin.patcherServiceAccount.name }}
-{{- end }}
+{{- include "openshift-console-plugin.name" . }}
 {{- end }}
