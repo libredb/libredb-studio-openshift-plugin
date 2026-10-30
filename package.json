@@ -1,0 +1,78 @@
+{
+  "name": "console-plugin-template",
+  "version": "0.0.1",
+  "description": "Template project for OpenShift Console plugins",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/openshift/console-plugin-template.git"
+  },
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build": "yarn clean && NODE_ENV=production rspack",
+    "build-dev": "yarn clean && rspack",
+    "start": "rspack serve",
+    "start-console": "./start-console.sh",
+    "i18n": "i18next-cli lint && i18next-cli extract",
+    "test": "LANG=en_US.UTF-8 jest",
+    "lint": "oxlint --fix src integration-tests && oxfmt 'src/**/*.{ts,tsx}' 'integration-tests/**/*.ts' && stylelint 'src/**/*.css' --allow-empty-input --fix",
+    "test-e2e": "playwright test --headed",
+    "test-e2e-headless": "playwright test"
+  },
+  "devDependencies": {
+    "@openshift-console/dynamic-plugin-sdk": "4.23-latest",
+    "@openshift-console/dynamic-plugin-sdk-webpack": "4.23-latest",
+    "@patternfly/react-core": "^6.6.1",
+    "@patternfly/react-icons": "^6.6.1",
+    "@patternfly/react-table": "^6.6.1",
+    "@playwright/test": "^1.64.1",
+    "@rspack/cli": "^2.2.9",
+    "@rspack/core": "^2.2.9",
+    "@rspack/dev-server": "^2.2.1",
+    "@swc/core": "^1.16.18",
+    "@swc/jest": "^0.2.39",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.8",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.28",
+    "eslint": "^10.12.0",
+    "eslint-plugin-playwright": "^2.12.1",
+    "eslint-plugin-testing-library": "^7.16.2",
+    "i18next": "^25.8.18",
+    "i18next-cli": "1.50.3",
+    "jest": "^30.5.2",
+    "jest-environment-jsdom": "^30.5.2",
+    "jest-junit": "^17.0.0",
+    "oxfmt": "^0.72.0",
+    "oxlint": "^1.87.0",
+    "oxlint-tsgolint": "^7.0.2004",
+    "react": "^18.3.1",
+    "react-compiler-runtime": "^1.0.0",
+    "react-dom": "^18.3.1",
+    "react-i18next": "~16.5.8",
+    "react-router": "~7.18.1",
+    "stylelint": "^17.16.0",
+    "stylelint-config-standard": "^40.0.0",
+    "ts-checker-rspack-plugin": "^1.7.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "consolePlugin": {
+    "name": "console-plugin-template",
+    "version": "0.0.1",
+    "displayName": "OpenShift Console Plugin Template",
+    "description": "Template project for OpenShift Console plugins. Edit package.json to change this message and the plugin name.",
+    "exposedModules": {
+      "ExamplePage": "./components/ExamplePage"
+    },
+    "dependencies": {
+      "@console/pluginAPI": ">=5.0.0-0 || >=4.23.0-0"
+    }
+  },
+  "packageManager": "yarn@4.18.0"
+}

@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "allowJs": true,
+    "resolveJsonModule": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "types": ["jest", "@testing-library/jest-dom", "node"]
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", ".yarn"],
+  "ts-node": {
+    "files": true,
+    "transpileOnly": true,
+    "compilerOptions": {
+      "module": "commonjs",
+      "moduleResolution": "node",
+    }
+  }
+}
