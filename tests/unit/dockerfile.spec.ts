@@ -100,6 +100,28 @@ describe('the Dockerfile', () => {
     expect(labels.description).toMatch(/\S/);
   });
 
+  // The nginx base sets these for its own build and for s2i. Left alone, the plugin image would name the base's
+  // commit and date as its own and offer an s2i usage it does not support. A release sets the OCI created and
+  // revision labels from its own build.
+  it('clears the provenance and s2i labels the base image sets, and names its source', () => {
+    for (const inherited of [
+      'build-date',
+      'vcs-ref',
+      'vcs-type',
+      'org.opencontainers.image.created',
+      'org.opencontainers.image.revision',
+      'usage',
+      'help',
+      'io.openshift.s2i.scripts-url',
+      'io.s2i.scripts-url',
+    ]) {
+      expect(labels).toHaveProperty([inherited], '');
+    }
+    expect(labels['org.opencontainers.image.source']).toBe(
+      'https://github.com/libredb/libredb-studio-openshift-plugin',
+    );
+  });
+
   it('runs nginx as user 1001 in the foreground with no log file', () => {
     const users = of('USER');
     expect(users[users.length - 1]).toBe('1001');

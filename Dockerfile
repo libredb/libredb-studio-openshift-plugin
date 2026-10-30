@@ -35,7 +35,20 @@ LABEL name="libredb-studio-openshift-plugin" \
   io.k8s.display-name="LibreDB Studio console plugin" \
   io.k8s.description="Serves the OpenShift web console dynamic plugin that lists the cluster's databases and opens them in LibreDB Studio." \
   io.openshift.expose-services="9443:https" \
-  io.openshift.tags="openshift,console-plugin,libredb"
+  io.openshift.tags="openshift,console-plugin,libredb" \
+  org.opencontainers.image.source="https://github.com/libredb/libredb-studio-openshift-plugin"
+
+# The base sets these for its own build and for s2i; the plugin image is not that build and supports no s2i. A release
+# sets the OCI created and revision labels from its own build.
+LABEL build-date="" \
+  vcs-ref="" \
+  vcs-type="" \
+  org.opencontainers.image.created="" \
+  org.opencontainers.image.revision="" \
+  usage="" \
+  help="" \
+  io.openshift.s2i.scripts-url="" \
+  io.s2i.scripts-url=""
 
 COPY --from=build /opt/app-root/src/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/nginx.conf
