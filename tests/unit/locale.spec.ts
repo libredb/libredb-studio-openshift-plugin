@@ -38,8 +38,16 @@ const DATABASES_PAGE_COPY = [
   'Status',
 ];
 
+/** The English sentence the details item adds below its first 20 lines. */
+const DETAILS_ITEM_COPY = [
+  'This resource has {{total}} database users; the first 20 are shown here and the Databases page lists all of them.',
+];
+
 describe('the English locale file', () => {
-  it.each(DATABASES_PAGE_COPY)('holds %j as its own English text', (key) => {
-    expect(locale[key]).toBe(key);
-  });
+  it.each([...DATABASES_PAGE_COPY, ...DETAILS_ITEM_COPY])(
+    'holds %j as its own English text',
+    (key) => {
+      expect(locale[key]).toBe(key);
+    },
+  );
 });

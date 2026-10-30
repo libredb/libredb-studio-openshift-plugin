@@ -132,10 +132,11 @@ describe('the plugin source rules', () => {
 });
 
 describe('console-extensions.json', () => {
+  const extensions = JSON.parse(
+    fs.readFileSync(path.join(ROOT, 'console-extensions.json'), 'utf-8'),
+  ) as { type: string; properties: unknown }[];
+
   it('declares a feature flag per supported kind', () => {
-    const extensions = JSON.parse(
-      fs.readFileSync(path.join(ROOT, 'console-extensions.json'), 'utf-8'),
-    ) as { type: string; properties: unknown }[];
     expect(extensions.filter((extension) => extension.type === 'console.flag/model')).toEqual(
       KIND_ROWS.map((row) => ({
         type: 'console.flag/model',
@@ -145,6 +146,35 @@ describe('console-extensions.json', () => {
         },
       })),
     );
+  });
+
+  it('declares a LibreDB Studio details item per supported kind', () => {
+    expect(
+      extensions.filter((extension) => extension.type === 'console.resource/details-item'),
+    ).toEqual(
+      KIND_ROWS.map((row) => ({
+        type: 'console.resource/details-item',
+        properties: {
+          model: { group: row.group, version: row.version, kind: row.kind },
+          id: `libredb-studio-details-${row.slug}`,
+          column: 'right',
+          title: '%plugin__libredb-studio~LibreDB Studio%',
+          description:
+            '%plugin__libredb-studio~Only databases in the namespaces your administrator chose for discovery open; any other one opens as not found.%',
+          component: { $codeRef: 'DatabaseDetailsItem' },
+        },
+      })),
+    );
+  });
+
+  it('exposes the module of every component it names', () => {
+    const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf-8')) as {
+      consolePlugin: { exposedModules: Record<string, string> };
+    };
+    expect(pkg.consolePlugin.exposedModules).toEqual({
+      DatabasesPage: './components/DatabasesPage',
+      DatabaseDetailsItem: './components/DatabaseDetailsItem',
+    });
   });
 });
 

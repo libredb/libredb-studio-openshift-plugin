@@ -51,5 +51,57 @@
       "href": "/libredb-studio/databases",
       "section": "home"
     }
+  },
+  {
+    "type": "console.resource/details-item",
+    "properties": {
+      "model": { "group": "postgresql.cnpg.io", "version": "v1", "kind": "Cluster" },
+      "id": "libredb-studio-details-cnpg",
+      "column": "right",
+      "title": "%plugin__libredb-studio~LibreDB Studio%",
+      "description": "%plugin__libredb-studio~Only databases in the namespaces your administrator chose for discovery open; any other one opens as not found.%",
+      "component": { "$codeRef": "DatabaseDetailsItem" }
+    }
+  },
+  {
+    "type": "console.resource/details-item",
+    "properties": {
+      "model": { "group": "postgresql.k8s.enterprisedb.io", "version": "v1", "kind": "Cluster" },
+      "id": "libredb-studio-details-edbpg",
+      "column": "right",
+      "title": "%plugin__libredb-studio~LibreDB Studio%",
+      "description": "%plugin__libredb-studio~Only databases in the namespaces your administrator chose for discovery open; any other one opens as not found.%",
+      "component": { "$codeRef": "DatabaseDetailsItem" }
+    }
+  },
+  {
+    "type": "console.resource/details-item",
+    "properties": {
+      "model": {
+        "group": "postgres-operator.crunchydata.com",
+        "version": "v1beta1",
+        "kind": "PostgresCluster"
+      },
+      "id": "libredb-studio-details-pgo",
+      "column": "right",
+      "title": "%plugin__libredb-studio~LibreDB Studio%",
+      "description": "%plugin__libredb-studio~Only databases in the namespaces your administrator chose for discovery open; any other one opens as not found.%",
+      "component": { "$codeRef": "DatabaseDetailsItem" }
+    }
+  },
+  {
+    "type": "console.resource/details-item",
+    "properties": {
+      "model": {
+        "group": "mongodbcommunity.mongodb.com",
+        "version": "v1",
+        "kind": "MongoDBCommunity"
+      },
+      "id": "libredb-studio-details-mongo",
+      "column": "right",
+      "title": "%plugin__libredb-studio~LibreDB Studio%",
+      "description": "%plugin__libredb-studio~Only databases in the namespaces your administrator chose for discovery open; any other one opens as not found.%",
+      "component": { "$codeRef": "DatabaseDetailsItem" }
+    }
   }
 ]
