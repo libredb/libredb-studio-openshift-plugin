@@ -18,6 +18,9 @@ The chart under `charts/` in this repository is for development and the lab only
 | Crunchy PGO | `postgresclusters.postgres-operator.crunchydata.com` |
 | MongoDB Community | `mongodbcommunity.mongodbcommunity.mongodb.com` |
 
+The plugin adds a LibreDB Studio item to the details page of each supported resource, the page that Search and the resource's own list open (`/k8s/ns/<namespace>/<group>~<version>~<kind>/<name>`).
+The console does not render plugin details items on the operand details page that Installed Operators opens, so the item is not shown there; the Databases page and the generic details page list the same database.
+
 ## Compatibility
 
 | OpenShift | Loads the plugin | Tested |

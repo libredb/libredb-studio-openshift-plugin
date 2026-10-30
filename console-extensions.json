@@ -59,6 +59,7 @@
       "id": "libredb-studio-details-cnpg",
       "column": "right",
       "title": "%plugin__libredb-studio~LibreDB Studio%",
+      "description": "%plugin__libredb-studio~Only databases in the namespaces your administrator chose for discovery open; any other one opens as not found.%",
       "component": { "$codeRef": "DatabaseDetailsItem" }
     }
   },
@@ -69,6 +70,7 @@
       "id": "libredb-studio-details-edbpg",
       "column": "right",
       "title": "%plugin__libredb-studio~LibreDB Studio%",
+      "description": "%plugin__libredb-studio~Only databases in the namespaces your administrator chose for discovery open; any other one opens as not found.%",
       "component": { "$codeRef": "DatabaseDetailsItem" }
     }
   },
@@ -83,6 +85,7 @@
       "id": "libredb-studio-details-pgo",
       "column": "right",
       "title": "%plugin__libredb-studio~LibreDB Studio%",
+      "description": "%plugin__libredb-studio~Only databases in the namespaces your administrator chose for discovery open; any other one opens as not found.%",
       "component": { "$codeRef": "DatabaseDetailsItem" }
     }
   },
@@ -97,6 +100,7 @@
       "id": "libredb-studio-details-mongo",
       "column": "right",
       "title": "%plugin__libredb-studio~LibreDB Studio%",
+      "description": "%plugin__libredb-studio~Only databases in the namespaces your administrator chose for discovery open; any other one opens as not found.%",
       "component": { "$codeRef": "DatabaseDetailsItem" }
     }
   }

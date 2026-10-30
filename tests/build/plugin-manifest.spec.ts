@@ -101,6 +101,8 @@ describe('the built plugin manifest', () => {
           id: `libredb-studio-details-${row.slug}`,
           column: 'right',
           title: '%plugin__libredb-studio~LibreDB Studio%',
+          description:
+            '%plugin__libredb-studio~Only databases in the namespaces your administrator chose for discovery open; any other one opens as not found.%',
           component: { $codeRef: 'DatabaseDetailsItem' },
         },
       })),

@@ -145,6 +145,37 @@ describe('DatabaseDetailsItem with many database users', () => {
     ).toBeTruthy();
   });
 
+  it('marks a duplicate among all users before it keeps the first 20 lines', async () => {
+    const users = [
+      { name: 'app', db: 'a' },
+      ...Array.from({ length: 19 }, (_value, index) => ({ name: `user-${index}` })),
+      { name: 'app', db: 'b' },
+    ];
+    show(mongo(users));
+    const buttons = await screen.findAllByRole('button');
+    expect(buttons).toHaveLength(19);
+    expect(access).toHaveBeenCalledTimes(19);
+    const reason = screen.getByText(
+      'Two database users share this connection id, so LibreDB Studio lists neither.',
+    );
+    expect(
+      reason.compareDocumentPosition(buttons[0]) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    const sentence = screen.getByText(MORE(21));
+    expect(
+      buttons[18].compareDocumentPosition(sentence) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('adds no sentence while LibreDB Studio is not set up, whatever the number of users', () => {
+    show(postgresCluster(25), { state: 'missing' });
+    expect(screen.getByTestId(ITEM)).toHaveTextContent(
+      'LibreDB Studio is not set up in this cluster',
+    );
+    expect(screen.queryByText(/database users; the first 20/)).toBeNull();
+    expect(access).not.toHaveBeenCalled();
+  });
+
   it('adds no sentence for exactly 20 users', async () => {
     show(postgresCluster(20));
     expect(await screen.findAllByRole('button')).toHaveLength(20);
