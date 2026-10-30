@@ -4,7 +4,7 @@
     "properties": {
       "exact": true,
       "path": "/example",
-      "component": { "$codeRef": "ExamplePage.ExamplePage" }
+      "component": { "$codeRef": "ExamplePage" }
     }
   },
   {

@@ -2,7 +2,23 @@
 
 set -exuo pipefail
 
-INSTALLER_DIR=${INSTALLER_DIR:=${ARTIFACT_DIR:-/tmp/artifacts}/installer}
+ARTIFACT_DIR=${ARTIFACT_DIR:=/tmp/artifacts}
+SCREENSHOTS_DIR=integration-tests/screenshots
+INSTALLER_DIR=${INSTALLER_DIR:=${ARTIFACT_DIR}/installer}
+
+function copyArtifacts {
+  if [ -d "$ARTIFACT_DIR" ] && [ -d "$SCREENSHOTS_DIR" ]; then
+    if [[ -z "$(ls -A -- "$SCREENSHOTS_DIR")" ]]; then
+      echo "No artifacts were copied."
+    else
+      echo "Copying artifacts from $(pwd)..."
+      cp -r "$SCREENSHOTS_DIR" "${ARTIFACT_DIR}/screenshots"
+    fi
+  fi
+}
+
+trap copyArtifacts EXIT
+
 
 # don't log kubeadmin-password
 set +x
@@ -12,19 +28,10 @@ set -x
 BRIDGE_BASE_ADDRESS="$(oc get consoles.config.openshift.io cluster -o jsonpath='{.status.consoleURL}')"
 export BRIDGE_BASE_ADDRESS
 
-echo "Disable guided tour"
-oc patch console.operator.openshift.io cluster --type=merge -p '{"spec":{"customization":{"capabilities":[{"name":"GuidedTour","visibility":{"state":"Disabled"}}]}}}'
-oc rollout status -w deploy/console -n openshift-console --timeout=300s
-
 echo "Install dependencies"
 if [ ! -d node_modules ]; then
   yarn install --immutable
 fi
 
-export PLAYWRIGHT_BROWSERS_PATH="/tmp/playwright"
-
-echo "Install Chromium for Playwright"
-yarn playwright install chromium
-
-echo "Runs Playwright tests in headless mode"
-yarn test-e2e-headless
+echo "Runs Cypress tests in headless mode"
+yarn test-cypress-headless

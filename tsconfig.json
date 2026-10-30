@@ -1,22 +1,22 @@
 {
   "compilerOptions": {
-    "module": "preserve",
-    "moduleResolution": "bundler",
+    "baseUrl": ".",
+    "module": "esnext",
+    "moduleResolution": "node",
+    "target": "es2021",
+    "sourceMap": true,
     "jsx": "react-jsx",
     "allowJs": true,
-    "resolveJsonModule": true,
     "strict": true,
-    "noUnusedLocals": true,
-    "types": ["jest", "@testing-library/jest-dom", "node"]
+    "noUnusedLocals": true
   },
   "include": ["src"],
-  "exclude": ["node_modules", ".yarn"],
+  "exclude": ["node_modules"],
   "ts-node": {
     "files": true,
     "transpileOnly": true,
     "compilerOptions": {
-      "module": "commonjs",
-      "moduleResolution": "node",
+      "module": "commonjs"
     }
   }
 }

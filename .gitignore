@@ -2,13 +2,8 @@
 **/dist
 **/.DS_Store
 .devcontainer/dev.env
-integration-tests/.auth
-integration-tests/results
-test-results/
-
-# Jest
-coverage/
-jest-junit.xml
+integration-tests/videos
+integration-tests/screenshots
 
 # Yarn v4 (Berry)
 .yarn/*
