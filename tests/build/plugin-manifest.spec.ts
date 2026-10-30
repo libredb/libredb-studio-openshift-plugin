@@ -18,6 +18,8 @@ const manifest = read<{
   version: string;
   dependencies: Record<string, string>;
   extensions: Extension[];
+  baseURL: string;
+  loadScripts: string[];
 }>('dist/plugin-manifest.json');
 
 /** Every `$codeRef` value under `value`. */
@@ -40,9 +42,16 @@ describe('the built plugin manifest', () => {
     expect(manifest.dependencies['@console/pluginAPI']).toBe('>=4.19.0-0');
   });
 
-  it('carries exactly the extension types console-extensions.json declares', () => {
-    const types = (extensions: Extension[]) => [...new Set(extensions.map((e) => e.type))].sort();
-    expect(types(manifest.extensions)).toEqual(types(declared));
+  it('carries exactly the extensions console-extensions.json declares', () => {
+    expect(manifest.extensions).toEqual(declared);
+  });
+
+  it('is served under the plugin name and loads scripts the build wrote', () => {
+    expect(manifest.baseURL).toBe('/api/plugins/libredb-studio/');
+    expect(manifest.loadScripts.length).toBeGreaterThan(0);
+    for (const script of manifest.loadScripts) {
+      expect(fs.existsSync(path.join(ROOT, 'dist', script))).toBe(true);
+    }
   });
 
   it('uses no extension type the 4.22 console removed', () => {
