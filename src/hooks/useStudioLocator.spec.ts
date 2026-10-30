@@ -4,6 +4,12 @@ import { LOCATOR_NAME, locatorFromWatch, useStudioLocator } from './useStudioLoc
 
 const watch = jest.mocked(useK8sWatchResource);
 
+const SPEC = {
+  location: 'ApplicationMenu',
+  href: 'https://studio.apps.example.test/studio',
+  text: 'LibreDB Studio',
+};
+
 const link = (overrides: { metadata?: unknown; spec?: unknown } = {}) => ({
   apiVersion: 'console.openshift.io/v1',
   kind: 'ConsoleLink',
@@ -11,15 +17,11 @@ const link = (overrides: { metadata?: unknown; spec?: unknown } = {}) => ({
     name: 'libredb-studio',
     labels: { 'app.kubernetes.io/name': 'libredb-studio' },
   },
-  spec: {
-    location: 'ApplicationMenu',
-    href: 'https://studio.apps.example.test/studio',
-    text: 'LibreDB Studio',
-  },
+  spec: SPEC,
   ...overrides,
 });
 
-const withSpec = (spec: Record<string, unknown>) => link({ spec: { ...link().spec, ...spec } });
+const withSpec = (spec: Record<string, unknown>) => link({ spec: { ...SPEC, ...spec } });
 
 beforeEach(() => {
   watch.mockReset();
@@ -103,7 +105,7 @@ describe('locatorFromWatch', () => {
 
 describe('useStudioLocator', () => {
   it('watches only the console link named libredb-studio', () => {
-    watch.mockReturnValue([link(), true, undefined]);
+    watch.mockReturnValue([link(), true, undefined] as never);
     const { result } = renderHook(() => useStudioLocator(), undefined);
     expect(LOCATOR_NAME).toBe('libredb-studio');
     expect(watch).toHaveBeenCalledWith({
@@ -122,7 +124,7 @@ describe('useStudioLocator', () => {
   });
 
   it('reports the watch error', () => {
-    watch.mockReturnValue([undefined, false, { response: { status: 404 } }]);
+    watch.mockReturnValue([undefined, false, { response: { status: 404 } }] as never);
     const { result } = renderHook(() => useStudioLocator(), undefined);
     expect(result.current).toEqual({ state: 'missing' });
   });

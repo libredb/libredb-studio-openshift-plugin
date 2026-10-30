@@ -38,10 +38,11 @@ function setUp(
   results: Partial<Record<KindRow['slug'], Result>>,
   active = 'team-a',
 ) {
-  flag.mockImplementation((name: string) => {
+  // useFlag answers undefined while the console has not resolved a flag, which its type leaves out.
+  flag.mockImplementation(((name: string) => {
     const slug = KIND_ROWS.find((row) => row.flag === name)?.slug as KindRow['slug'];
     return slug in flags ? flags[slug] : false;
-  });
+  }) as typeof useFlag);
   watch.mockReturnValue(results as ReturnType<typeof useK8sWatchResources>);
   activeNamespace.mockReturnValue([active, jest.fn()]);
 }

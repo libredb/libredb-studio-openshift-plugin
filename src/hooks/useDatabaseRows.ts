@@ -2,6 +2,7 @@ import {
   useActiveNamespace,
   useFlag,
   useK8sWatchResources,
+  type K8sResourceCommon,
   type WatchK8sResource,
 } from '@openshift-console/dynamic-plugin-sdk';
 import { KIND_ROWS, type KindRow } from '../contract/kinds';
@@ -84,7 +85,7 @@ export function useDatabaseRows(): DatabaseRowsState {
     useFlag(KIND_ROWS[3].flag),
   ];
   const installed = KIND_ROWS.filter((_kind, index) => flags[index] === true);
-  const results = useK8sWatchResources<Record<string, unknown[]>>(
+  const results = useK8sWatchResources<Record<string, K8sResourceCommon[]>>(
     Object.fromEntries(installed.map((kind) => [kind.slug, watchOf(kind, namespace)])),
   );
 
