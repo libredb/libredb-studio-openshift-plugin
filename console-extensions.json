@@ -1,20 +1,38 @@
 [
   {
-    "type": "console.page/route",
+    "type": "console.flag/model",
     "properties": {
-      "exact": true,
-      "path": "/example",
-      "component": { "$codeRef": "ExamplePage" }
+      "flag": "LIBREDB_STUDIO_CNPG",
+      "model": { "group": "postgresql.cnpg.io", "version": "v1", "kind": "Cluster" }
     }
   },
   {
-    "type": "console.navigation/href",
+    "type": "console.flag/model",
     "properties": {
-      "id": "example",
-      "name": "%plugin__console-plugin-template~Plugin example%",
-      "href": "/example",
-      "perspective": "admin",
-      "section": "home"
+      "flag": "LIBREDB_STUDIO_EDBPG",
+      "model": { "group": "postgresql.k8s.enterprisedb.io", "version": "v1", "kind": "Cluster" }
+    }
+  },
+  {
+    "type": "console.flag/model",
+    "properties": {
+      "flag": "LIBREDB_STUDIO_PGO",
+      "model": {
+        "group": "postgres-operator.crunchydata.com",
+        "version": "v1beta1",
+        "kind": "PostgresCluster"
+      }
+    }
+  },
+  {
+    "type": "console.flag/model",
+    "properties": {
+      "flag": "LIBREDB_STUDIO_MONGO",
+      "model": {
+        "group": "mongodbcommunity.mongodb.com",
+        "version": "v1",
+        "kind": "MongoDBCommunity"
+      }
     }
   }
 ]
