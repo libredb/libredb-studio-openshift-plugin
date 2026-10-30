@@ -225,6 +225,21 @@ describe('GitHub workflows', () => {
     });
   });
 
+  // setup-buildx starts a privileged BuildKit container that builds and, in the release, pushes with the package
+  // credential; its default image is the moving tag buildx-stable-1. Dependabot does not track it: bump it by hand.
+  it('runs every buildx builder on one BuildKit image pinned by digest', () => {
+    const buildx = allSteps.filter(
+      (candidate) => actionOf(candidate.uses) === 'docker/setup-buildx-action',
+    );
+    expect(buildx.length).toBeGreaterThanOrEqual(2);
+    const images = new Set(buildx.map((candidate) => candidate.with?.['driver-opts']));
+    expect(images.size).toBe(1);
+    expect([...images][0]).toMatch(/^image=moby\/buildkit:v\d+\.\d+\.\d+@sha256:[0-9a-f]{64}$/);
+    for (const candidate of buildx) {
+      expect(Object.keys(candidate.with ?? {})).toEqual(['driver-opts']);
+    }
+  });
+
   it('sets up no emulator', () => {
     for (const step of allSteps) {
       expect(step.uses ?? '').not.toMatch(/^docker\/setup-qemu-action@/);

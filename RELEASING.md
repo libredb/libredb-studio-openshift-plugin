@@ -18,6 +18,7 @@ If the notes job fails after the image was pushed, re-run that job alone.
 Re-running the whole workflow pushes the version tag again with a new digest, and the notes job then refuses, because the notes already name an image.
 
 Only the publish job holds `packages: write` and only the notes job holds `contents: write`; nothing is signed, so no job requests an OIDC token.
+The buildx builder of the publish job and of CI's image job runs privileged, so both pin its `moby/buildkit` image by digest; Dependabot does not track that pin, so it is bumped by hand in both workflows together.
 
 ## Image
 

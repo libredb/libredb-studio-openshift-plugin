@@ -121,7 +121,11 @@ jobs:
         with:
           persist-credentials: false
 
+      # The builder runs privileged, so its image is pinned by digest (v0.33.1 is the action's default
+      # buildx-stable-1 on 2026-10-30); Dependabot does not track it, and release.yml pins the same one.
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        with:
+          driver-opts: image=moby/buildkit:v0.33.1@sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea
 
       - name: Read the version
         id: version
