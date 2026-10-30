@@ -54,6 +54,37 @@ describe('the built plugin manifest', () => {
     }
   });
 
+  it('routes the Databases page, adds its navigation item and declares the four kind flags', () => {
+    expect(pkg.consolePlugin.exposedModules).toEqual({
+      DatabasesPage: './components/DatabasesPage',
+    });
+    expect(manifest.extensions.filter((e) => e.type === 'console.page/route')).toEqual([
+      {
+        type: 'console.page/route',
+        properties: {
+          path: '/libredb-studio/databases',
+          exact: true,
+          component: { $codeRef: 'DatabasesPage' },
+        },
+      },
+    ]);
+    expect(manifest.extensions.filter((e) => e.type === 'console.navigation/href')).toEqual([
+      {
+        type: 'console.navigation/href',
+        properties: {
+          id: 'libredb-studio-databases',
+          name: '%plugin__libredb-studio~Databases%',
+          href: '/libredb-studio/databases',
+          section: 'home',
+        },
+      },
+    ]);
+    expect(manifest.extensions.filter((e) => e.type === 'console.flag/model')).toHaveLength(4);
+    expect(new Set(manifest.extensions.map((e) => e.type))).toEqual(
+      new Set(['console.flag/model', 'console.page/route', 'console.navigation/href']),
+    );
+  });
+
   it('uses no extension type the 4.22 console removed', () => {
     for (const extension of manifest.extensions) {
       expect(extension.type).not.toBe('console.page/resource/tab');
