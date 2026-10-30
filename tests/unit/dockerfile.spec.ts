@@ -7,10 +7,11 @@ import { parse } from 'yaml';
 const ROOT = path.resolve(__dirname, '../..');
 const read = (file: string) => fs.readFileSync(path.join(ROOT, file), 'utf-8');
 
+// The shape of each pin, not its digest: Dependabot moves the digests, and each of its pull requests passes the image
+// job's smoke test before it merges (R-27).
 const BUILD_BASE =
-  'registry.access.redhat.com/ubi9/nodejs-22:latest@sha256:b66295c1b3ef39cc5adcf7f0459f7ec9111014e1dce8f565ed4339c760862418';
-const RUNTIME_BASE =
-  'registry.access.redhat.com/ubi9/nginx-120:latest@sha256:a79a9e924f0543d232b862838249ce5f410e8ad0fcc9cf2bd317e2ff45da8eb8';
+  /^--platform=\$BUILDPLATFORM registry\.access\.redhat\.com\/ubi9\/nodejs-22:latest@sha256:[0-9a-f]{64} AS build$/;
+const RUNTIME_BASE = /^registry\.access\.redhat\.com\/ubi9\/nginx-120:latest@sha256:[0-9a-f]{64}$/;
 
 interface Instruction {
   keyword: string;
@@ -53,7 +54,10 @@ const labels = Object.fromEntries(
 
 describe('the Dockerfile', () => {
   it('builds from the two UBI bases pinned by digest, each FROM written out in full', () => {
-    expect(of('FROM')).toEqual([`--platform=$BUILDPLATFORM ${BUILD_BASE} AS build`, RUNTIME_BASE]);
+    const froms = of('FROM');
+    expect(froms).toHaveLength(2);
+    expect(froms[0]).toMatch(BUILD_BASE);
+    expect(froms[1]).toMatch(RUNTIME_BASE);
   });
 
   it('installs from the lockfile with the committed Yarn release, which runs no install script', () => {

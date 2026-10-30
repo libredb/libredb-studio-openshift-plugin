@@ -39,6 +39,21 @@ const steps = (file: string) =>
   Object.values(workflow(file).jobs).flatMap((job) => job.steps ?? []);
 const allSteps = files.flatMap(steps);
 
+/**
+ * The line that pins `action` to a commit with its version in a comment. The commit itself is not asserted: Dependabot
+ * moves it, and a spec that names it would fail every such pull request.
+ */
+const pinLine = (action: string) =>
+  new RegExp(
+    `^\\s*(-\\s+)?uses: ${action.replace(/[/.-]/g, '\\$&')}@[0-9a-f]{40} # v\\d+\\.\\d+\\.\\d+$`,
+    'm',
+  );
+/** The action a step uses, without its commit, once that commit has the shape of a full SHA. */
+const actionOf = (uses: string | undefined) => {
+  const [action, ref] = (uses ?? '').split('@');
+  return /^[0-9a-f]{40}$/.test(ref ?? '') ? action : uses;
+};
+
 describe('GitHub workflows', () => {
   it('names the jobs the branch protection requires', () => {
     expect(jobNames('ci.yml')).toEqual([
@@ -134,16 +149,10 @@ describe('GitHub workflows', () => {
 
     // dev-chart.spec.ts renders the development chart with helm and fails under CI when helm is missing.
     it('sets up helm 4.1.3 before the unit tests', () => {
-      const helm = index((candidate) =>
-        (candidate.uses ?? '').startsWith(
-          'azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310',
-        ),
-      );
+      const helm = index((candidate) => actionOf(candidate.uses) === 'azure/setup-helm');
       expect(helm).toBeGreaterThan(-1);
       expect(checkSteps[helm].with).toEqual({ version: 'v4.1.3' });
-      expect(source('ci.yml')).toContain(
-        'uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1',
-      );
+      expect(source('ci.yml')).toMatch(pinLine('azure/setup-helm'));
       expect(helm).toBeLessThan(index((candidate) => candidate.run === 'yarn test:coverage'));
     });
 
@@ -162,12 +171,10 @@ describe('GitHub workflows', () => {
     const builds = runs.filter((run) => run.includes('docker buildx build'));
 
     it('sets up buildx with the pinned action', () => {
-      expect((job?.steps ?? []).map((step) => step.uses).filter(Boolean)).toContain(
-        'docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069',
+      expect((job?.steps ?? []).map((step) => actionOf(step.uses))).toContain(
+        'docker/setup-buildx-action',
       );
-      expect(source('ci.yml')).toContain(
-        'uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1',
-      );
+      expect(source('ci.yml')).toMatch(pinLine('docker/setup-buildx-action'));
     });
 
     it('builds both platforms without pushing, then loads the amd64 image', () => {
@@ -382,7 +389,7 @@ describe('the release workflow', () => {
 
   describe('the publish job', () => {
     const publish = jobs.publish.steps ?? [];
-    const uses = publish.map((candidate) => candidate.uses);
+    const uses = publish.map((candidate) => actionOf(candidate.uses)).filter(Boolean);
     const build = publish.find((candidate) =>
       candidate.uses?.startsWith('docker/build-push-action@'),
     );
@@ -390,18 +397,14 @@ describe('the release workflow', () => {
 
     it('uses the pinned buildx, login, metadata and build actions and no emulator', () => {
       expect(uses).toEqual([
-        'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1',
-        'docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069',
-        'docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6',
-        'docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302',
-        'docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc',
+        'actions/checkout',
+        'docker/setup-buildx-action',
+        'docker/login-action',
+        'docker/metadata-action',
+        'docker/build-push-action',
       ]);
-      for (const line of [
-        'docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0',
-        'docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0',
-        'docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0',
-      ]) {
-        expect(releaseSource).toContain(line);
+      for (const action of uses) {
+        expect(releaseSource).toMatch(pinLine(action as string));
       }
     });
 
