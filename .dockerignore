@@ -4,3 +4,4 @@ dist
 coverage
 integration-tests/results
 integration-tests/.auth
+.yarn/install-state.gz

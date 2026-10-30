@@ -1,0 +1,158 @@
+name: Release
+
+# A published GitHub release builds the multi-architecture image for its tag, pushes it under that version only, and
+# appends the image digest and the LibreDB Studio contract the release matches to the release notes. Three jobs keep
+# each write permission in the one job that needs it.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Check the Tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.tag.outputs.version }}
+      studio-tag: ${{ steps.tag.outputs.studio-tag }}
+    steps:
+      # The whole history, so origin/main is there to compare the tagged commit with.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      # A tag on a commit that never reached main would publish unreviewed code, and gh release create --target main
+      # is ignored when the tag already exists.
+      - name: Check that the tagged commit is on main
+        run: |
+          set -euo pipefail
+          if [ -z "${GITHUB_SHA:-}" ] || ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::The tagged commit is not on main; tag a commit of main." >&2
+            exit 1
+          fi
+
+      # The tag is checked before it is printed anywhere, so a crafted name cannot inject a workflow command.
+      - name: Check the tag against package.json
+        id: tag
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          if ! [[ "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::The release tag is not a bare semver version such as 0.1.0." >&2
+            exit 1
+          fi
+          version=$(jq -r .version package.json)
+          plugin_version=$(jq -r .consolePlugin.version package.json)
+          if [ "$TAG" != "$version" ] || [ "$TAG" != "$plugin_version" ]; then
+            echo "::error::Tag $TAG differs from package.json version $version or consolePlugin.version $plugin_version." >&2
+            exit 1
+          fi
+          studio_tag=$(jq -r .tag tests/unit/fixtures/kubernetes-discovery-golden.source.json)
+          if ! [[ "$studio_tag" =~ ^libredb-studio-[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::The golden fixture source names no LibreDB Studio chart tag." >&2
+            exit 1
+          fi
+          {
+            echo "version=$version"
+            echo "studio-tag=$studio_tag"
+          } >> "$GITHUB_OUTPUT"
+
+  publish:
+    name: Publish the Image
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # No emulator: the build stage runs on the build platform and the runtime stage has no RUN.
+      # The builder runs privileged and pushes with the package credential, so its image is pinned by digest, the
+      # same one as ci.yml; Dependabot does not track it.
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        with:
+          driver-opts: image=moby/buildkit:v0.33.1@sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea
+
+      # The published image is this job's own build, so it runs the smoke test before the job logs in or pushes; the
+      # push below reuses the builder's cache, so its amd64 layers are the ones tested here.
+      - name: Build the amd64 image for the smoke test
+        env:
+          VERSION: ${{ needs.verify.outputs.version }}
+        run: docker buildx build --platform linux/amd64 --load --build-arg VERSION="$VERSION" --tag localhost/osplugin:release .
+
+      - name: Smoke-test the image
+        run: scripts/nginx-smoke.sh localhost/osplugin:release
+
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # The version tag only: no latest, so nothing installs this image until a LibreDB Studio release pins its digest.
+      - id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ghcr.io/libredb/libredb-studio-openshift-plugin
+          tags: |
+            type=raw,value=${{ needs.verify.outputs.version }}
+          flavor: |
+            latest=false
+
+      - id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: VERSION=${{ needs.verify.outputs.version }}
+
+  notes:
+    name: Record the Image in the Release Notes
+    needs: [verify, publish]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Append the image digest and the Studio contract to the release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.event.release.tag_name }}
+          VERSION: ${{ needs.verify.outputs.version }}
+          DIGEST: ${{ needs.publish.outputs.digest }}
+          STUDIO_TAG: ${{ needs.verify.outputs.studio-tag }}
+        run: |
+          set -euo pipefail
+          if ! [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::The publish job reported no image index digest." >&2
+            exit 1
+          fi
+          image=ghcr.io/libredb/libredb-studio-openshift-plugin
+          notes="$RUNNER_TEMP/release-notes.md"
+          gh release view "$TAG" --json body --jq .body > "$notes"
+          if grep -q -F "Image: $image:" "$notes"; then
+            echo "::error::The notes of release $TAG already name an image; check which digest the tag carries." >&2
+            exit 1
+          fi
+          printf '\nImage: %s:%s@%s\n\nMatches the Kubernetes discovery contract of LibreDB Studio tag %s, Studio releases after 1.1.0.\n' \
+            "$image" "$VERSION" "$DIGEST" "$STUDIO_TAG" >> "$notes"
+          gh release edit "$TAG" --notes-file "$notes"
