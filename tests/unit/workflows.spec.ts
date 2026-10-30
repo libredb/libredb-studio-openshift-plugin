@@ -31,6 +31,7 @@ describe('GitHub workflows', () => {
       'Lint, Typecheck and Unit Tests',
       'Golden Fixture Matches Studio',
       'Build and Plugin Manifest',
+      'Image and nginx Smoke',
     ]);
     expect(jobNames('secret-scan.yml')).toEqual(['Secret Scan']);
   });
@@ -108,6 +109,68 @@ describe('GitHub workflows', () => {
       .find((text) => text.includes('kubernetes-discovery-golden.source.json'));
     expect(run).toContain('curl -fsSL --retry 3');
     expect(run).toContain('cmp ');
+  });
+
+  describe('the image job', () => {
+    const job = workflow('ci.yml').jobs.image;
+    const runs = (job?.steps ?? []).map((step) => step.run ?? '');
+    const builds = runs.filter((run) => run.includes('docker buildx build'));
+
+    it('sets up buildx with the pinned action', () => {
+      expect((job?.steps ?? []).map((step) => step.uses).filter(Boolean)).toContain(
+        'docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069',
+      );
+      expect(source('ci.yml')).toContain(
+        'uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1',
+      );
+    });
+
+    it('builds both platforms without pushing, then loads the amd64 image', () => {
+      expect(builds).toHaveLength(2);
+      expect(builds[0]).toContain('--platform linux/amd64,linux/arm64');
+      expect(builds[1]).toContain('--platform linux/amd64');
+      expect(builds[1]).toContain('--load');
+      for (const build of builds) {
+        expect(build).not.toMatch(/--push|type=registry|push=true/);
+        expect(build).toContain('--build-arg VERSION=');
+      }
+    });
+
+    it('runs the smoke test on the loaded image', () => {
+      const tag = /--tag (\S+)/.exec(builds[1] ?? '')?.[1];
+      expect(tag).toBeDefined();
+      expect(runs.some((run) => run.includes(`scripts/nginx-smoke.sh ${tag}`))).toBe(true);
+    });
+  });
+
+  describe('scripts/nginx-smoke.sh', () => {
+    const script = fs.readFileSync(path.join(ROOT, 'scripts/nginx-smoke.sh'), 'utf-8');
+
+    it('stops on the first error', () => {
+      expect(script).toMatch(/^set -euo pipefail$/m);
+    });
+
+    it('draws its random values with openssl', () => {
+      expect(script).toContain('openssl rand -hex 16');
+    });
+
+    // OpenSSL 3 writes the key 0600 for the invoking user, while the image runs as 1001.
+    it('makes the throwaway key readable before it mounts it', () => {
+      const chmod = script.search(/chmod 0644 \S*tls\.key/);
+      expect(chmod).toBeGreaterThan(-1);
+      expect(chmod).toBeLessThan(script.indexOf('docker run'));
+    });
+
+    // A count of zero token matches proves nothing unless requests were logged.
+    it('requires a logged manifest request before it counts token matches', () => {
+      const logged = script.indexOf('"GET /plugin-manifest\\.json[?" ]');
+      expect(logged).toBeGreaterThan(-1);
+      expect(logged).toBeLessThan(script.indexOf('no token in the log'));
+    });
+
+    it('removes its container and certificate on exit', () => {
+      expect(script).toMatch(/^trap cleanup EXIT$/m);
+    });
   });
 
   it('sets up no emulator', () => {
