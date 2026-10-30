@@ -5,6 +5,6 @@
         "types": ["node"],
         "isolatedModules": false
     },
-    "include": ["./**/*.ts"],
+    "include": ["./**/*.ts", "../playwright.config.ts"],
     "exclude": ["screenshots", ".auth"]
 }

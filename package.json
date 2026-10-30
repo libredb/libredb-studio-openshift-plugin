@@ -15,12 +15,13 @@
     "start": "yarn webpack serve --progress",
     "start-console": "./start-console.sh",
     "i18n": "./i18n-scripts/build-i18n.sh && node ./i18n-scripts/set-english-defaults.js",
-    "lint": "eslint src tests integration-tests --max-warnings 0 && stylelint 'src/**/*.css' --allow-empty-input --max-warnings 0",
-    "lint:fix": "eslint src tests integration-tests --fix --max-warnings 0 && stylelint 'src/**/*.css' --allow-empty-input --max-warnings 0 --fix",
+    "lint": "eslint src tests integration-tests playwright.config.ts --max-warnings 0 && stylelint 'src/**/*.css' --allow-empty-input --max-warnings 0",
+    "lint:fix": "eslint src tests integration-tests playwright.config.ts --fix --max-warnings 0 && stylelint 'src/**/*.css' --allow-empty-input --max-warnings 0 --fix",
     "typecheck": "tsc --noEmit && tsc --noEmit -p integration-tests/tsconfig.json",
     "test": "LANG=en_US.UTF-8 jest",
     "test:coverage": "LANG=en_US.UTF-8 jest --coverage",
     "test:manifest": "LANG=en_US.UTF-8 jest --config jest.build.config.ts",
+    "test:e2e": "scripts/e2e/run-crc.sh",
     "webpack": "node -r ts-node/register ./node_modules/.bin/webpack"
   },
   "devDependencies": {

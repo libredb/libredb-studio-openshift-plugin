@@ -1,6 +1,8 @@
 import type { Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 
+export * from './lab';
+
 export async function checkErrors(page: Page) {
   const windowError = await page.evaluate(
     () => (window as Window & { windowError?: string }).windowError,
