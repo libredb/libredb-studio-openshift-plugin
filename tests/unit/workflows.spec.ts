@@ -12,8 +12,9 @@ interface Step {
   with?: Record<string, unknown>;
 }
 interface Workflow {
+  on: Record<string, { branches?: string[] } | null>;
   permissions?: unknown;
-  jobs: Record<string, { name?: string; steps?: Step[] }>;
+  jobs: Record<string, { name?: string; permissions?: unknown; steps?: Step[] }>;
 }
 
 const files = fs.readdirSync(WORKFLOWS).filter((file) => /\.ya?ml$/.test(file));
@@ -36,6 +37,21 @@ describe('GitHub workflows', () => {
 
   it.each(files)('%s grants read-only contents at the top level', (file) => {
     expect(workflow(file).permissions).toEqual({ contents: 'read' });
+  });
+
+  it.each(files)('%s widens no permission in a job', (file) => {
+    for (const job of Object.values(workflow(file).jobs)) {
+      expect(job).not.toHaveProperty('permissions');
+    }
+  });
+
+  // pull_request_target and workflow_run run with a write token and secrets on code a fork controls.
+  it.each(files)('%s runs only on a pull request, a push to main or a manual dispatch', (file) => {
+    const triggers = workflow(file).on;
+    for (const event of Object.keys(triggers)) {
+      expect(['pull_request', 'push', 'workflow_dispatch']).toContain(event);
+    }
+    expect(triggers.push?.branches).toEqual(['main']);
   });
 
   it.each(files)('%s pins every action to a commit with its version in a comment', (file) => {
