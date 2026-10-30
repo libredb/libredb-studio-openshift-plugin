@@ -88,6 +88,16 @@ jobs:
         with:
           driver-opts: image=moby/buildkit:v0.33.1@sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea
 
+      # The published image is this job's own build, so it runs the smoke test before the job logs in or pushes; the
+      # push below reuses the builder's cache, so its amd64 layers are the ones tested here.
+      - name: Build the amd64 image for the smoke test
+        env:
+          VERSION: ${{ needs.verify.outputs.version }}
+        run: docker buildx build --platform linux/amd64 --load --build-arg VERSION="$VERSION" --tag localhost/osplugin:release .
+
+      - name: Smoke-test the image
+        run: scripts/nginx-smoke.sh localhost/osplugin:release
+
       - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ghcr.io

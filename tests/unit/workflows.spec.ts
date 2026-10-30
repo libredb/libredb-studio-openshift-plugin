@@ -496,6 +496,28 @@ describe('the release workflow', () => {
       }
     });
 
+    // The published image is its own build, so it runs the smoke test itself before anything is pushed; the push
+    // then reuses the builder's cache, so its amd64 layers are the ones the smoke test ran.
+    it('smoke-tests the amd64 image it builds before it logs in and pushes', () => {
+      const index = (predicate: (candidate: Step) => boolean) => publish.findIndex(predicate);
+      const load = index((candidate) => (candidate.run ?? '').includes('docker buildx build'));
+      expect(load).toBeGreaterThan(-1);
+      const loadRun = publish[load].run ?? '';
+      expect(loadRun).toContain('--platform linux/amd64 ');
+      expect(loadRun).toContain('--load');
+      expect(loadRun).toContain('--build-arg VERSION="$VERSION"');
+      expect(loadRun).not.toMatch(/--push|type=registry|push=true/);
+      expect(publish[load].env).toEqual({ VERSION: '${{ needs.verify.outputs.version }}' });
+      const tag = /--tag (\S+)/.exec(loadRun)?.[1];
+      expect(tag).toMatch(/^localhost\//);
+      const smoke = index((candidate) => candidate.run === `scripts/nginx-smoke.sh ${tag}`);
+      const login = index((candidate) => actionOf(candidate.uses) === 'docker/login-action');
+      const push = index((candidate) => actionOf(candidate.uses) === 'docker/build-push-action');
+      expect(load).toBeLessThan(smoke);
+      expect(smoke).toBeLessThan(login);
+      expect(login).toBeLessThan(push);
+    });
+
     it('logs in to GHCR with the job token', () => {
       const login = publish.find((candidate) => candidate.uses?.startsWith('docker/login-action@'));
       expect(login?.with).toEqual({
