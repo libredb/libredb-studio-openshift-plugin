@@ -214,6 +214,22 @@ describe('useDatabaseRows', () => {
     expect(result.current.loaded).toBe(false);
   });
 
+  it('collects more rows of one kind than a call may take as arguments', () => {
+    // V8 throws RangeError when one call receives about 125k spread arguments; a namespace editor can write more
+    // users than that across a few resources, each under etcd's object size limit.
+    const users = Array.from({ length: 70_000 }, (_value, index) => `u${index}`);
+    setUp(
+      { pgo: true },
+      {
+        pgo: ok([postgresCluster('team-a', 'one', users), postgresCluster('team-a', 'two', users)]),
+      },
+    );
+    const { result } = renderHook(() => useDatabaseRows(), undefined);
+    expect(result.current.rows).toHaveLength(140_000);
+    expect(result.current.rows[0]).toMatchObject({ name: 'one', user: 'u0' });
+    expect(result.current.rows[139_999]).toMatchObject({ name: 'two', user: 'u9999' });
+  });
+
   it('is not loaded while a kind is still loading', () => {
     setUp({ cnpg: true }, { cnpg: { data: [], loaded: false, loadError: undefined } });
     const { result } = renderHook(() => useDatabaseRows(), undefined);

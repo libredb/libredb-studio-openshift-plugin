@@ -104,7 +104,13 @@ export function useDatabaseRows(): DatabaseRowsState {
     kinds.push({ kind, loaded: result?.loaded === true });
     const resources: unknown = result?.data;
     if (Array.isArray(resources)) {
-      rows.push(...resources.flatMap((resource: unknown) => databaseRows(kind, resource)));
+      // A loop, not push(...rows): a spread of more than about 125k rows throws RangeError, and a namespace editor
+      // decides how many rows one kind has.
+      for (const resource of resources as unknown[]) {
+        for (const row of databaseRows(kind, resource)) {
+          rows.push(row);
+        }
+      }
     }
   }
 
