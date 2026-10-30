@@ -1,6 +1,6 @@
 # The build stage runs on the build platform: its output is architecture-independent JavaScript, and the runtime stage
 # has no RUN instruction, so a multi-platform build needs no emulator.
-FROM --platform=$BUILDPLATFORM registry.access.redhat.com/ubi9/nodejs-22:latest@sha256:b66295c1b3ef39cc5adcf7f0459f7ec9111014e1dce8f565ed4339c760862418 AS build
+FROM --platform=$BUILDPLATFORM registry.access.redhat.com/ubi9/nodejs-22:latest@sha256:06f5f49a1f94a0ff6822de8b99a62717945ec227883c914d9371a84103612ea4 AS build
 
 ARG VERSION
 WORKDIR /opt/app-root/src
