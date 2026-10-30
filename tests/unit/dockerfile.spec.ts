@@ -79,9 +79,11 @@ describe('the Dockerfile', () => {
     expect(of('RUN', runtimeStage)).toEqual([]);
   });
 
-  it('serves the bundle with the baked configuration and ships the licences', () => {
+  // The base image's /usr/share/nginx/html holds its own welcome and error pages; the bundle goes to a directory of its
+  // own, so the document root holds nothing but the build output.
+  it('serves the bundle from its own directory with the baked configuration and ships the licences', () => {
     expect(of('COPY', runtimeStage)).toEqual([
-      '--from=build /opt/app-root/src/dist /usr/share/nginx/html',
+      '--from=build /opt/app-root/src/dist /usr/share/nginx/plugin',
       'nginx.conf /etc/nginx/nginx.conf',
       'LICENSE NOTICE /licenses/',
     ]);

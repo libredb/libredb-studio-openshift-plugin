@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Smoke test of the plugin image: it serves the plugin manifest and entry script over TLS with a JavaScript content
-# type while running with a read-only root, and its log holds no bearer token, cookie, Basic user or query string.
+# type, and none of the base image's default pages, while running with a read-only root, and its log holds no bearer
+# token, cookie, Basic user or query string.
 # The console forwards each user's bearer token on every asset fetch to this server, so the log check is the point.
 # The error log names the request line and Host of a request nginx rejects, which the console never sends (its asset
 # proxy sends a GET with the path only); the script proves even that line holds no Authorization header or cookie.
@@ -89,6 +90,13 @@ case "$result" in
   "200 application/javascript" | "200 text/javascript") pass "entry $entry $result" ;;
   *) fail "entry $entry answered '$result', not 200 with a JavaScript content type" ;;
 esac
+
+# The document root holds only the build output, so the base image's welcome page and logo are not served.
+for page in index.html nginx-logo.png; do
+  result=$(fetch "$page")
+  [ "${result%% *}" = 404 ] || fail "base image page /$page answered '$result', not 404"
+  pass "base image page /$page 404"
+done
 
 result=$(fetch plugin-manifest.json --tlsv1.3)
 [ "${result%% *}" = 200 ] || fail "TLS 1.3: the manifest answered '$result'"

@@ -79,6 +79,9 @@ case "$path" in
     type=application/json
     [ "$STUB_MODE" = content-type ] && type=text/plain ;;
   */plugin-entry.0123abcd.min.js) echo 'entry' > "$out"; type=application/javascript ;;
+  */index.html|*/nginx-logo.png)
+    [ "$STUB_MODE" = default-pages ] || { echo 'not found' > "$out"; [ -n "$format" ] && printf '404 text/html'; exit 0; }
+    echo 'welcome' > "$out"; type=text/html ;;
   *) echo 'not found' > "$out"; [ -n "$format" ] && printf '404 text/html'; exit 0 ;;
 esac
 [ -n "$format" ] && printf '200 %s' "$type"
@@ -141,6 +144,8 @@ describe('scripts/nginx-smoke.sh', () => {
       'PASS image user 1001',
       'PASS manifest 200 application/json',
       'PASS entry plugin-entry.0123abcd.min.js 200 application/javascript',
+      'PASS base image page /index.html 404',
+      'PASS base image page /nginx-logo.png 404',
       'PASS TLS 1.3',
       'PASS requests logged',
       'PASS no token in the log',
@@ -181,6 +186,7 @@ describe('scripts/nginx-smoke.sh', () => {
     ['no request reaches the log', 'silent', 'requests logged'],
     ['the log holds an emerg line', 'emerg', 'emerg or alert'],
     ['the manifest has another content type', 'content-type', 'manifest'],
+    ['the base image serves its default pages', 'default-pages', 'base image page'],
     ['the error log names a header of a rejected request', 'leak-error-header', 'error log'],
     ['the error log does not record the rejected request', 'error-silent', 'error log'],
     ['an arbitrary uid cannot serve the plugin', 'uid-denied', 'arbitrary uid'],

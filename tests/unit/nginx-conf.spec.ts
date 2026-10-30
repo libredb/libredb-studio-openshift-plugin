@@ -77,9 +77,13 @@ describe('the baked nginx configuration', () => {
     expect(directives('ssl_protocols')).toEqual(['TLSv1.2 TLSv1.3']);
   });
 
+  // /usr/share/nginx/html holds the base image's welcome and error pages, which the plugin server must not serve.
   it('serves only the files of the bundle', () => {
     expect(directives('include')).toEqual(['/etc/nginx/mime.types']);
-    expect(directives('root')).toEqual(['/usr/share/nginx/html']);
+    expect(directives('root')).toEqual(['/usr/share/nginx/plugin']);
+    expect(conf).not.toMatch(/\/usr\/share\/nginx\/html\b/);
+    expect(directives('index')).toEqual([]);
+    expect(directives('error_page')).toEqual([]);
     expect(directives('try_files')).toEqual(['$uri =404']);
     expect(directives('server_tokens')).toEqual(['off']);
     expect(conf).not.toMatch(/\bautoindex\s+on\b/);

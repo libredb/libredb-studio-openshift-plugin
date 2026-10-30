@@ -50,7 +50,9 @@ LABEL build-date="" \
   io.openshift.s2i.scripts-url="" \
   io.s2i.scripts-url=""
 
-COPY --from=build /opt/app-root/src/dist /usr/share/nginx/html
+# The base image's /usr/share/nginx/html holds its welcome and error pages, so the bundle gets a directory of its own and
+# the server answers 404 for anything that is not the build output.
+COPY --from=build /opt/app-root/src/dist /usr/share/nginx/plugin
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY LICENSE NOTICE /licenses/
 

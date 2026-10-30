@@ -23,6 +23,7 @@ The buildx builder of the publish job and of CI's image job runs privileged, so 
 ## Image
 
 The image builds `dist/` in a UBI Node.js 22 stage and serves it from a UBI nginx 1.20 stage, both pinned by digest, with the configuration baked in from `nginx.conf`.
+nginx serves `dist/` from `/usr/share/nginx/plugin`, a document root holding only the build output, so the base image's welcome and error pages in `/usr/share/nginx/html` answer 404.
 It runs as user 1001 with a read-only root and a writable `/tmp`, listens on 9443 with the serving certificate mounted at `/var/cert`, and its access log records only the client address, time, method, path, status and size of each request: never a header, a cookie or the query string, because the console sends each user's bearer token on every asset fetch.
 The error log records nothing about a request the server answers normally; for a request nginx rejects with an error, such as a body over its 1 MiB limit, it names the request line, with its query string, and the `Host` and `Referer` headers, never the `Authorization` header or a cookie.
 The console's asset proxy sends only a GET with the path and no body, so it never sends such a request.
@@ -36,7 +37,7 @@ scripts/nginx-smoke.sh localhost/osplugin:dev
 ```
 
 The build refuses a missing `VERSION` or one that differs from `package.json`.
-The smoke test runs the image read-only with a throwaway certificate, fetches the manifest and the entry script over TLS, sends requests carrying a bearer token, a cookie, a Basic user and a query string, and fails unless the requests were logged and none of those values reached the log.
+The smoke test runs the image read-only with a throwaway certificate, fetches the manifest and the entry script over TLS, fails unless the base image's `/index.html` and `/nginx-logo.png` answer 404, sends requests carrying a bearer token, a cookie, a Basic user and a query string, and fails unless the requests were logged and none of those values reached the log.
 It then sends an oversized request with a bearer token and a cookie, and fails unless nginx logged the rejection without either of them, and last runs the image as an arbitrary uid in group 0, as OpenShift's `restricted-v2` does, and fetches the manifest and the entry script again.
 
 ## Upstream
