@@ -10,7 +10,7 @@ Steps:
 
 1. Bump `version` and `consolePlugin.version` in `package.json` in a pull request.
 2. After the pull request merges, publish a GitHub release with `gh release create <version> --generate-notes --target main`; never write release notes by hand.
-3. The release workflow (`.github/workflows/release.yml`) refuses a tag that is not semver or differs from `version` or `consolePlugin.version` in `package.json`, builds `linux/amd64` and `linux/arm64` without an emulator, pushes only the version tag (never `latest`), and appends two lines to the release notes: `Image: ghcr.io/libredb/libredb-studio-openshift-plugin:<version>@<index digest>` and the LibreDB Studio tag whose Kubernetes discovery contract the release matches.
+3. The release workflow (`.github/workflows/release.yml`) refuses a tag on a commit that is not on `main` (`--target main` is ignored when the tag already exists), a tag that is not semver, and one that differs from `version` or `consolePlugin.version` in `package.json`, builds `linux/amd64` and `linux/arm64` without an emulator, pushes only the version tag (never `latest`), and appends two lines to the release notes: `Image: ghcr.io/libredb/libredb-studio-openshift-plugin:<version>@<index digest>` and the LibreDB Studio tag whose Kubernetes discovery contract the release matches.
 4. Check that the digest in the notes equals `crane digest ghcr.io/libredb/libredb-studio-openshift-plugin:<version>`, and that the image pulls anonymously; a new GHCR package may start private, and only its settings page makes it public.
 5. Pin that digest in LibreDB Studio's chart and operator.
 

@@ -339,6 +339,79 @@ describe('the release workflow', () => {
     }
   });
 
+  // A release of a tag on a commit that never reached main would publish unreviewed code; gh release create's
+  // --target main is ignored when the tag already exists.
+  describe('the main branch check', () => {
+    const onMain = step('verify', 'Check that the tagged commit is on main');
+    const git = (cwd: string, ...args: string[]) =>
+      execFileSync('git', args, {
+        cwd,
+        encoding: 'utf-8',
+        env: {
+          ...process.env,
+          GIT_AUTHOR_NAME: 'test',
+          GIT_AUTHOR_EMAIL: 'test@example.invalid',
+          GIT_COMMITTER_NAME: 'test',
+          GIT_COMMITTER_EMAIL: 'test@example.invalid',
+        },
+      }).trim();
+    /** A repository whose origin/main holds two commits, with a third on a branch main never merged. */
+    const repository = () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'release-main-'));
+      git(dir, 'init', '-q', '-b', 'main');
+      git(dir, 'commit', '-q', '--allow-empty', '-m', 'first');
+      const first = git(dir, 'rev-parse', 'HEAD');
+      git(dir, 'commit', '-q', '--allow-empty', '-m', 'second');
+      const second = git(dir, 'rev-parse', 'HEAD');
+      git(dir, 'update-ref', 'refs/remotes/origin/main', second);
+      git(dir, 'checkout', '-q', '-b', 'side', first);
+      git(dir, 'commit', '-q', '--allow-empty', '-m', 'unreviewed');
+      const side = git(dir, 'rev-parse', 'HEAD');
+      return { dir, first, second, side };
+    };
+
+    it('checks out the whole history, so origin/main is there to compare with', () => {
+      const checkout = (jobs.verify.steps ?? []).find(
+        (candidate) => actionOf(candidate.uses) === 'actions/checkout',
+      );
+      expect(checkout?.with).toEqual({ 'persist-credentials': false, 'fetch-depth': 0 });
+      const names = (jobs.verify.steps ?? []).map((candidate) => candidate.name);
+      expect(names.indexOf('Check that the tagged commit is on main')).toBeLessThan(
+        names.indexOf('Check the tag against package.json'),
+      );
+      expect(onMain.env).toBeUndefined();
+    });
+
+    it.each([
+      ['the tip of main', 'second'],
+      ['an earlier commit of main', 'first'],
+    ] as const)('accepts %s', (_label, commit) => {
+      const repo = repository();
+      const run = runStep(onMain.run ?? '', { GITHUB_SHA: repo[commit] }, {}, repo.dir);
+      expect(run.stderr).toBe('');
+      expect(run.status).toBe(0);
+      run.cleanup();
+      fs.rmSync(repo.dir, { recursive: true, force: true });
+    });
+
+    it('refuses a commit that is not on main', () => {
+      const repo = repository();
+      const run = runStep(onMain.run ?? '', { GITHUB_SHA: repo.side }, {}, repo.dir);
+      expect(run.status).not.toBe(0);
+      expect(run.stderr).toContain('not on main');
+      run.cleanup();
+      fs.rmSync(repo.dir, { recursive: true, force: true });
+    });
+
+    it('refuses when there is no commit to check', () => {
+      const repo = repository();
+      const run = runStep(onMain.run ?? '', { GITHUB_SHA: '' }, {}, repo.dir);
+      expect(run.status).not.toBe(0);
+      run.cleanup();
+      fs.rmSync(repo.dir, { recursive: true, force: true });
+    });
+  });
+
   describe('the tag check', () => {
     const check = step('verify', 'Check the tag against package.json');
     const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf-8')) as {
