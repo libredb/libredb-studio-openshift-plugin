@@ -10,8 +10,30 @@ Steps:
 
 1. Bump `version` and `consolePlugin.version` in `package.json` in a pull request.
 2. After the pull request merges, publish a GitHub release with `gh release create <version> --generate-notes --target main`; never write release notes by hand.
-3. The release workflow refuses a tag that is not semver or differs from `package.json`, builds `linux/amd64` and `linux/arm64`, pushes only the version tag, and appends the image index digest and the LibreDB Studio tag whose Kubernetes discovery contract the release matches to the release notes.
-4. Check that the image pulls anonymously, then pin its digest in LibreDB Studio's chart and operator.
+3. The release workflow (`.github/workflows/release.yml`) refuses a tag that is not semver or differs from `version` or `consolePlugin.version` in `package.json`, builds `linux/amd64` and `linux/arm64` without an emulator, pushes only the version tag (never `latest`), and appends two lines to the release notes: `Image: ghcr.io/libredb/libredb-studio-openshift-plugin:<version>@<index digest>` and the LibreDB Studio tag whose Kubernetes discovery contract the release matches.
+4. Check that the digest in the notes equals `crane digest ghcr.io/libredb/libredb-studio-openshift-plugin:<version>`, and that the image pulls anonymously; a new GHCR package may start private, and only its settings page makes it public.
+5. Pin that digest in LibreDB Studio's chart and operator.
+
+If the notes job fails after the image was pushed, re-run that job alone.
+Re-running the whole workflow pushes the version tag again with a new digest, and the notes job then refuses, because the notes already name an image.
+
+Only the publish job holds `packages: write` and only the notes job holds `contents: write`; nothing is signed, so no job requests an OIDC token.
+
+## Image
+
+The image builds `dist/` in a UBI Node.js 22 stage and serves it from a UBI nginx 1.20 stage, both pinned by digest, with the configuration baked in from `nginx.conf`.
+It runs as user 1001 with a read-only root and a writable `/tmp`, listens on 9443 with the serving certificate mounted at `/var/cert`, and logs only the client address, time, method, path, status and size of each request: never a header, a cookie or the query string, because the console sends each user's bearer token on every asset fetch.
+`LICENSE` and `NOTICE` are in `/licenses`.
+
+To build and smoke-test it locally:
+
+```bash
+docker buildx build --load --build-arg VERSION="$(jq -r .version package.json)" -t localhost/osplugin:dev .
+scripts/nginx-smoke.sh localhost/osplugin:dev
+```
+
+The build refuses a missing `VERSION` or one that differs from `package.json`.
+The smoke test runs the image read-only with a throwaway certificate, fetches the manifest and the entry script over TLS, sends requests carrying a bearer token, a cookie, a Basic user and a query string, and fails unless the requests were logged and none of those values reached the log.
 
 ## Upstream
 

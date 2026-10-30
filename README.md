@@ -57,6 +57,12 @@ To try the plugin against a cluster, run `yarn start` for the dev server on 127.
 That console runs with sign-in disabled and acts with the bearer token it is given, so it listens on the loopback interface only.
 Preset `BRIDGE_K8S_AUTH_BEARER_TOKEN` to a short-lived token of a view-only account; without it the script takes the token of the current `oc` context, which must never be a cluster administrator's.
 
+## Image
+
+Each release publishes `ghcr.io/libredb/libredb-studio-openshift-plugin:<version>` for `linux/amd64` and `linux/arm64`, and its release notes name the image by digest.
+The image serves the plugin with nginx on TLS port 9443, runs as a non-root user with a read-only root, and logs no request header, cookie or query string.
+LibreDB Studio's chart and operator pin it by digest; [RELEASING.md](RELEASING.md) describes the release, the image and its smoke test.
+
 ## Licence
 
 Apache-2.0, see [LICENSE](LICENSE) and [NOTICE](NOTICE).
