@@ -7,7 +7,7 @@ ADD . /usr/src/app
 WORKDIR /usr/src/app
 RUN yarn install --immutable && yarn build
 
-FROM registry.access.redhat.com/ubi9/nginx-120:latest@sha256:a79a9e924f0543d232b862838249ce5f410e8ad0fcc9cf2bd317e2ff45da8eb8
+FROM registry.access.redhat.com/ubi9/nginx-120:latest@sha256:f96eae25ead81d4ab0233b1051b2d65881f2cf660b16e80c2e7b76ef1e966051
 
 COPY --from=build /usr/src/app/dist /usr/share/nginx/html
 USER 1001
