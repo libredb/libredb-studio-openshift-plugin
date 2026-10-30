@@ -8,6 +8,7 @@
   "LibreDB Studio": "LibreDB Studio",
   "LibreDB Studio could not list {{kind}} resources.": "LibreDB Studio could not list {{kind}} resources.",
   "LibreDB Studio is not set up in this cluster": "LibreDB Studio is not set up in this cluster",
+  "More than one console link named libredb-studio is listed, so this page opens nothing in LibreDB Studio.": "More than one console link named libredb-studio is listed, so this page opens nothing in LibreDB Studio.",
   "Name": "Name",
   "Namespace": "Namespace",
   "No databases in {{scope}}.": "No databases in {{scope}}.",

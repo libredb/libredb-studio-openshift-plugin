@@ -29,7 +29,7 @@ beforeEach(() => {
 
 describe('locatorFromWatch', () => {
   it('gives the base and host of a valid locator', () => {
-    expect(locatorFromWatch(link(), true, undefined)).toEqual({
+    expect(locatorFromWatch([link()], true, undefined)).toEqual({
       state: 'ready',
       base: 'https://studio.apps.example.test/studio',
       host: 'studio.apps.example.test',
@@ -38,7 +38,7 @@ describe('locatorFromWatch', () => {
 
   it('removes trailing slashes and keeps a port in the host', () => {
     expect(
-      locatorFromWatch(withSpec({ href: 'https://studio.example.test:8443//' }), true, null),
+      locatorFromWatch([withSpec({ href: 'https://studio.example.test:8443//' })], true, null),
     ).toEqual({
       state: 'ready',
       base: 'https://studio.example.test:8443',
@@ -48,7 +48,7 @@ describe('locatorFromWatch', () => {
 
   it('is loading while the watch has neither data nor an error', () => {
     expect(locatorFromWatch(undefined, false, undefined)).toEqual({ state: 'loading' });
-    expect(locatorFromWatch(link(), false, null)).toEqual({ state: 'loading' });
+    expect(locatorFromWatch([link()], false, null)).toEqual({ state: 'loading' });
   });
 
   it('maps the watch error by its status', () => {
@@ -63,7 +63,7 @@ describe('locatorFromWatch', () => {
   });
 
   it('trusts the error over data the watch still holds', () => {
-    expect(locatorFromWatch(link(), true, { code: 403 })).toEqual({ state: 'forbidden' });
+    expect(locatorFromWatch([link()], true, { code: 403 })).toEqual({ state: 'forbidden' });
   });
 
   it.each([
@@ -92,26 +92,39 @@ describe('locatorFromWatch', () => {
     ['no spec', link({ spec: undefined })],
     ['a spec that is not an object', link({ spec: 'x' })],
   ])('reads a link with %s as not set up', (_case, value) => {
-    expect(locatorFromWatch(value, true, undefined)).toEqual({ state: 'missing' });
+    expect(locatorFromWatch([value], true, undefined)).toEqual({ state: 'missing' });
   });
 
-  it.each([[undefined], [null], [[]], ['libredb-studio'], [{}]])(
+  it.each([[undefined], [null], [[]], ['libredb-studio'], [{}], [link()], [[undefined]], [[null]]])(
     'reads a loaded watch holding %j as not set up',
     (value) => {
       expect(locatorFromWatch(value, true, undefined)).toEqual({ state: 'missing' });
     },
   );
+
+  it('reads a list with no item as not set up, as after the link is deleted', () => {
+    expect(locatorFromWatch([link()], true, undefined).state).toBe('ready');
+    expect(locatorFromWatch([], true, undefined)).toEqual({ state: 'missing' });
+  });
+
+  it.each([
+    ['two valid links', [link(), link()]],
+    ['a valid link and an invalid one', [link(), withSpec({ href: 'http://x.example.test' })]],
+    ['an invalid link and a valid one', [link({ metadata: { name: 'other' } }), link()]],
+  ])('refuses a list holding %s', (_case, value) => {
+    expect(locatorFromWatch(value, true, undefined)).toEqual({ state: 'ambiguous' });
+  });
 });
 
 describe('useStudioLocator', () => {
-  it('watches only the console link named libredb-studio', () => {
-    watch.mockReturnValue([link(), true, undefined] as never);
+  it('watches only the console link named libredb-studio, as a list', () => {
+    watch.mockReturnValue([[link()], true, undefined] as never);
     const { result } = renderHook(() => useStudioLocator(), undefined);
     expect(LOCATOR_NAME).toBe('libredb-studio');
     expect(watch).toHaveBeenCalledWith({
       groupVersionKind: { group: 'console.openshift.io', version: 'v1', kind: 'ConsoleLink' },
-      name: 'libredb-studio',
-      isList: false,
+      fieldSelector: 'metadata.name=libredb-studio',
+      isList: true,
     });
     for (const [argument] of watch.mock.calls) {
       expect(argument).toEqual(watch.mock.calls[0][0]);
@@ -121,6 +134,15 @@ describe('useStudioLocator', () => {
       base: 'https://studio.apps.example.test/studio',
       host: 'studio.apps.example.test',
     });
+  });
+
+  it('stops being ready once the watch lists no link', () => {
+    watch.mockReturnValue([[link()], true, undefined] as never);
+    const { result, rerender } = renderHook(() => useStudioLocator(), undefined);
+    expect(result.current.state).toBe('ready');
+    watch.mockReturnValue([[], true, undefined] as never);
+    rerender(undefined);
+    expect(result.current).toEqual({ state: 'missing' });
   });
 
   it('reports the watch error', () => {

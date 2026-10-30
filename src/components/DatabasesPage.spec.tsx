@@ -85,6 +85,17 @@ describe('DatabasesPage, the Studio header', () => {
     },
   );
 
+  it('refuses to open anything when more than one console link is listed', () => {
+    show({ state: 'ambiguous' }, state({ rows: [orders] }));
+    expect(screen.getByTestId('libredb-studio-header')).toHaveTextContent(
+      'More than one console link named libredb-studio is listed, so this page opens nothing in LibreDB Studio.',
+    );
+    expect(screen.getByTestId(`libredb-reason-${ORDERS_ID}`)).toHaveTextContent(
+      'LibreDB Studio is not set up in this cluster',
+    );
+    expect(screen.queryByTestId(`libredb-open-${ORDERS_ID}`)).toBeNull();
+  });
+
   it('waits for the console link before it shows rows', () => {
     show({ state: 'loading' }, state({ rows: [orders] }));
     expect(screen.queryByTestId('libredb-studio-header')).toBeNull();

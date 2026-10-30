@@ -40,6 +40,15 @@ function StudioHeader({ locator }: { locator: StudioLocator }) {
           )}
         />
       );
+    case 'ambiguous':
+      return (
+        <NotAvailable
+          testId={HEADER_TEST_ID}
+          title={t(
+            'More than one console link named libredb-studio is listed, so this page opens nothing in LibreDB Studio.',
+          )}
+        />
+      );
     default:
       return (
         <NotAvailable
