@@ -6,7 +6,8 @@ Status: in development, not yet released, and not ready for production use.
 
 The plugin holds no credential and reads no Secret.
 It finds LibreDB Studio through the console link named `libredb-studio` that Studio's chart renders, and opens a database by Studio's connection id; Studio checks the user's access again before it connects.
-Clusters install the plugin through LibreDB Studio's Helm chart or operator, never from this repository.
+Clusters install the plugin through LibreDB Studio's Helm chart or operator.
+The chart under `charts/` in this repository is for development and the lab only.
 
 ## Supported databases
 
@@ -27,7 +28,9 @@ Clusters install the plugin through LibreDB Studio's Helm chart or operator, nev
 | 5.0 | Yes, the range has no upper bound | No |
 
 The plugin is built once against the console dynamic plugin SDK 4.19 and declares `@console/pluginAPI` `>=4.19.0-0`.
-It uses React 17 and PatternFly 6.2, which every console from 4.19 on provides; a newer console logs a warning about the shared React, react-i18next and SDK versions and uses its own copies.
+It shares React 17 and react-i18next 11 with the console, the versions the 4.19 to 4.21 consoles provide.
+The 4.22 console provides React 18 and react-i18next 16, logs a warning about the shared React, react-i18next and SDK versions, and uses its own copies.
+PatternFly React 6.2 is bundled into the plugin, not shared, and matches the PatternFly CSS 6.2 of the 4.19 to 4.21 consoles; the 4.22 console loads PatternFly CSS 6.4.
 
 The connection ids follow LibreDB Studio's Kubernetes discovery contract, which `tests/unit/fixtures/kubernetes-discovery-golden.source.json` names by its Studio tag.
 The plugin matches LibreDB Studio releases after 1.1.0.
