@@ -10,6 +10,7 @@ interface PackageJson {
   version: string;
   license: string;
   private: boolean;
+  scripts: Record<string, string>;
   devDependencies: Record<string, string>;
   dependencies?: Record<string, string>;
   resolutions: Record<string, string>;
@@ -45,6 +46,14 @@ describe('dependency pins', () => {
     expect(pkg.devDependencies['@openshift-console/dynamic-plugin-sdk']).toBe('4.19.1');
     expect(pkg.devDependencies['@openshift-console/dynamic-plugin-sdk-webpack']).toBe('4.19.0');
     expect(pkg.consolePlugin.dependencies).toEqual({ '@console/pluginAPI': '>=4.19.0-0' });
+  });
+
+  it('pins PatternFly 6.2 in devDependencies', () => {
+    expect(pkg.devDependencies['@patternfly/react-core']).toBe('6.2.3');
+    expect(pkg.devDependencies['@patternfly/react-table']).toBe('6.2.3');
+    expect(pkg.devDependencies['@patternfly/react-icons']).toBe('6.2.2');
+    expect(pkg.devDependencies['@patternfly/react-styles']).toBe('6.2.2');
+    expect(pkg.devDependencies['@patternfly/react-tokens']).toBe('6.2.2');
   });
 
   it('holds PatternFly on 6.2 through resolutions', () => {
@@ -95,6 +104,14 @@ describe('dependency pins', () => {
   it('keeps no Cypress, mocha or mochawesome dependency', () => {
     const names = Object.keys({ ...pkg.devDependencies, ...pkg.dependencies });
     expect(names.filter((name) => /cypress|mocha/.test(name))).toEqual([]);
+  });
+
+  it('fails lint on any ESLint or stylelint warning', () => {
+    const linters = pkg.scripts.lint.split('&&').map((command) => command.trim());
+    expect(linters.map((command) => command.split(' ')[0])).toEqual(['eslint', 'stylelint']);
+    for (const command of linters) {
+      expect(command).toContain('--max-warnings 0');
+    }
   });
 
   it('runs Node 22', () => {
