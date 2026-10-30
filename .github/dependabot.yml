@@ -1,0 +1,51 @@
+# Weekly, grouped updates. Yarn lives under the npm ecosystem. The console SDK, PatternFly, React and the i18n and
+# Testing Library packages are pinned to the lines the oldest supported console provides and are bumped by hand, so
+# they are left out here. A version update waits seven days after its publication; security updates are not delayed.
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Istanbul
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    ignore:
+      - dependency-name: "@openshift-console/dynamic-plugin-sdk"
+      - dependency-name: "@openshift-console/dynamic-plugin-sdk-webpack"
+      - dependency-name: "@patternfly/*"
+      - dependency-name: "react"
+      - dependency-name: "react-dom"
+      - dependency-name: "@types/react"
+      - dependency-name: "@types/react-dom"
+      - dependency-name: "react-i18next"
+      - dependency-name: "i18next"
+      - dependency-name: "@testing-library/react"
+      - dependency-name: "@testing-library/dom"
+    groups:
+      dev-dependencies:
+        dependency-type: development
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Istanbul
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # The two base images of the Dockerfile, pinned by digest.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Istanbul
