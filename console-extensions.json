@@ -34,5 +34,22 @@
         "kind": "MongoDBCommunity"
       }
     }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "path": "/libredb-studio/databases",
+      "exact": true,
+      "component": { "$codeRef": "DatabasesPage" }
+    }
+  },
+  {
+    "type": "console.navigation/href",
+    "properties": {
+      "id": "libredb-studio-databases",
+      "name": "%plugin__libredb-studio~Databases%",
+      "href": "/libredb-studio/databases",
+      "section": "home"
+    }
   }
 ]
