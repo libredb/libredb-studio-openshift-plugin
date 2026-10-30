@@ -1,0 +1,10 @@
+LibreDB Studio OpenShift console plugin
+Copyright 2026 SEKOYA GRUP BİLİŞİM VE TEKNOLOJİ LİMİTED ŞİRKETİ (LibreDB)
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This product includes software from openshift/console-plugin-template
+(https://github.com/openshift/console-plugin-template), licensed under the Apache License, Version 2.0:
+- branch release-4.19 at commit efc5c137b5acfd7a2a9580079dc16af59ba06176, the tree this repository started from;
+- branch release-4.22 at commit 1fdacd51f6c8e792b4d5b86cb0929617c3f22bfb, the source of the unit and end-to-end test tooling.
+LibreDB modified the files it took from both commits.

@@ -1,9 +1,9 @@
 **/node_modules
 **/dist
 **/.DS_Store
-.devcontainer/dev.env
-integration-tests/videos
-integration-tests/screenshots
+coverage
+integration-tests/results
+integration-tests/.auth
 
 # Yarn v4 (Berry)
 .yarn/*

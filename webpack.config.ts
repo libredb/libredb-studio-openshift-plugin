@@ -61,6 +61,9 @@ const config: Configuration = {
   },
   devServer: {
     static: './dist',
+    // Loopback only: the development console runs with host networking on Linux (start-console.sh), and nothing
+    // else needs to reach the dev server.
+    host: '127.0.0.1',
     port: 9001,
     // Allow Bridge running in a container to connect to the plugin dev server.
     allowedHosts: 'all',
