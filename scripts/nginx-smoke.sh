@@ -2,17 +2,21 @@
 # Smoke test of the plugin image: it serves the plugin manifest and entry script over TLS with a JavaScript content
 # type while running with a read-only root, and its log holds no bearer token, cookie, Basic user or query string.
 # The console forwards each user's bearer token on every asset fetch to this server, so the log check is the point.
+# The error log names the request line and Host of a request nginx rejects, which the console never sends (its asset
+# proxy sends a GET with the path only); the script proves even that line holds no Authorization header or cookie.
+# Last, the image runs as an arbitrary uid in group 0, as OpenShift's restricted-v2 runs it.
 # Usage: scripts/nginx-smoke.sh <image>
 set -euo pipefail
 
 image=${1:?usage: scripts/nginx-smoke.sh <image>}
 workdir=$(mktemp -d -t nginx-smoke.XXXXXXXX)
 container=""
+containers=()
 
 cleanup() {
-  if [ -n "$container" ]; then
-    docker rm -f "$container" > /dev/null 2>&1 || true
-  fi
+  for started in ${containers[@]+"${containers[@]}"}; do
+    docker rm -f "$started" > /dev/null 2>&1 || true
+  done
   rm -rf "$workdir"
 }
 trap cleanup EXIT
@@ -40,14 +44,18 @@ openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=localhost -addext su
 chmod 0755 "$cert"
 chmod 0644 "$cert/tls.key" "$cert/tls.crt"
 
-# A pod's network namespace has IPv6, which the [::] listen needs; Docker turns it off unless asked.
-container=$(docker run --detach --read-only --tmpfs /tmp --sysctl net.ipv6.conf.all.disable_ipv6=0 \
-  --cap-drop ALL --security-opt no-new-privileges \
-  -v "$cert:/var/cert:ro" -p 127.0.0.1::9443 "$image")
-port=$(docker port "$container" 9443/tcp | head -n 1)
-port=${port##*:}
-base="https://localhost:$port"
-tls=(--silent --show-error --max-time 10 --cacert "$cert/tls.crt" --resolve "localhost:$port:127.0.0.1")
+# start [docker run options]: runs the image as a pod does and points fetch at it. A pod's network namespace has IPv6,
+# which the [::] listen needs; Docker turns it off unless asked.
+start() {
+  container=$(docker run --detach --read-only --tmpfs /tmp --sysctl net.ipv6.conf.all.disable_ipv6=0 \
+    --cap-drop ALL --security-opt no-new-privileges \
+    -v "$cert:/var/cert:ro" -p 127.0.0.1::9443 "$@" "$image")
+  containers+=("$container")
+  port=$(docker port "$container" 9443/tcp | head -n 1)
+  port=${port##*:}
+  base="https://localhost:$port"
+  tls=(--silent --show-error --max-time 10 --cacert "$cert/tls.crt" --resolve "localhost:$port:127.0.0.1")
+}
 
 # fetch <path> [curl options]: writes the body to $workdir/body and prints "<status> <content type>".
 fetch() {
@@ -56,17 +64,20 @@ fetch() {
   curl "${tls[@]}" -o "$workdir/body" -w '%{http_code} %{content_type}' "$@" "$base/$target"
 }
 
-manifest_requests=0
-ready=""
-for _ in $(seq 1 30); do
-  if result=$(fetch plugin-manifest.json 2> /dev/null); then
-    manifest_requests=$((manifest_requests + 1))
-    ready=yes
-    break
-  fi
-  sleep 1
-done
-[ -n "$ready" ] || fail "manifest: the server did not answer on $base within 30 seconds"
+# wait_ready <check name>: waits until the server answers the manifest, leaving the answer in $result.
+wait_ready() {
+  for _ in $(seq 1 30); do
+    if result=$(fetch plugin-manifest.json 2> /dev/null); then
+      return 0
+    fi
+    sleep 1
+  done
+  fail "$1: the server did not answer on $base within 30 seconds"
+}
+
+start
+wait_ready manifest
+manifest_requests=1
 
 [ "$result" = "200 application/json" ] || fail "manifest answered '$result', not '200 application/json'"
 pass "manifest $result"
@@ -123,3 +134,38 @@ if grep -q -E '\[(emerg|alert)\]' "$log"; then
   fail "emerg or alert in the log"
 fi
 pass "no emerg or alert in the log"
+
+# A request nginx rejects with an error, here a body over its 1 MiB limit, makes nginx write an error line naming the
+# request line, with its query string, and the Host header. The console never sends one; the line must still hold no
+# Authorization header or cookie, and it must appear, or the check proves nothing.
+error_bearer=$(openssl rand -hex 16)
+error_cookie=$(openssl rand -hex 16)
+head -c 2097152 /dev/zero > "$workdir/large"
+result=$(fetch "plugin-manifest.json?token=$(openssl rand -hex 16)" --data-binary "@$workdir/large" \
+  -H "Authorization: Bearer sha256~not-a-real-token-$error_bearer" -H "Cookie: openshift-session-token=$error_cookie")
+[ "${result%% *}" = 413 ] || fail "error log: the oversized request answered '$result', not 413"
+rejected=0
+for _ in $(seq 1 10); do
+  docker logs "$container" > "$log" 2>&1
+  rejected=$(grep -c 'client intended to send too large body' "$log" || true)
+  [ "$rejected" -ge 1 ] && break
+  sleep 1
+done
+[ "$rejected" -ge 1 ] || fail "error log: the rejected request left no error line"
+for value in "$error_bearer" "$error_cookie" 'sha256~' 'Bearer'; do
+  if grep -q -i -F -- "$value" "$log"; then
+    fail "error log: the line of a rejected request holds its Authorization header or cookie"
+  fi
+done
+pass "error log: a rejected request is logged without its Authorization header or cookie"
+
+# OpenShift's restricted-v2 runs the image as an arbitrary uid in group 0, never as 1001.
+start --user 1000690000:0
+wait_ready "arbitrary uid 1000690000:0"
+[ "$result" = "200 application/json" ] || fail "arbitrary uid 1000690000:0: the manifest answered '$result'"
+pass "arbitrary uid 1000690000:0: manifest $result"
+result=$(fetch "$entry")
+case "$result" in
+  "200 application/javascript" | "200 text/javascript") pass "arbitrary uid 1000690000:0: entry $entry $result" ;;
+  *) fail "arbitrary uid 1000690000:0: entry $entry answered '$result'" ;;
+esac

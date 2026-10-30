@@ -60,7 +60,7 @@ Preset `BRIDGE_K8S_AUTH_BEARER_TOKEN` to a short-lived token of a view-only acco
 ## Image
 
 Each release publishes `ghcr.io/libredb/libredb-studio-openshift-plugin:<version>` for `linux/amd64` and `linux/arm64`, and its release notes name the image by digest.
-The image serves the plugin with nginx on TLS port 9443, runs as a non-root user with a read-only root, and logs no request header, cookie or query string.
+The image serves the plugin with nginx on TLS port 9443, runs as a non-root user with a read-only root, and never logs the `Authorization` header or a cookie; its access log also leaves out every other header and the query string.
 LibreDB Studio's chart and operator pin it by digest; [RELEASING.md](RELEASING.md) describes the release, the image and its smoke test.
 
 ## Licence
