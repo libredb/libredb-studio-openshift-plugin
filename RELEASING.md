@@ -40,6 +40,18 @@ The build refuses a missing `VERSION` or one that differs from `package.json`.
 The smoke test runs the image read-only with a throwaway certificate, fetches the manifest and the entry script over TLS, fails unless the base image's `/index.html` and `/nginx-logo.png` answer 404, sends requests carrying a bearer token, a cookie, a Basic user and a query string, and fails unless the requests were logged and none of those values reached the log.
 It then sends an oversized request with a bearer token and a cookie, and fails unless nginx logged the rejection without either of them, and last runs the image as an arbitrary uid in group 0, as OpenShift's `restricted-v2` does, and fetches the manifest and the entry script again.
 
+## Development console images
+
+The development lane, `scripts/e2e/run-dev-lane.sh`, ran on 2026-10-30 against CRC 4.22.14 with these console images, and each loaded the plugin and passed the `dev-lane` project:
+
+| Image | Digest | Loads the plugin |
+| --- | --- | --- |
+| `quay.io/openshift/origin-console:4.19` (also tagged `4.19.0`) | `sha256:9f2000b429109f99dc506c8c10c1fd5c594e279f606e852be9aa74356d76d0f9` | Yes |
+| `quay.io/openshift/origin-console:4.22` (also tagged `4.22.0`) | `sha256:13cc82d654ad8e7db7d723b978890e11dfc21302e84865e7d229a9ce7ba5f3f5` | Yes |
+
+The 4.19 image checks the 4.19 console build only: the API server it talks to is the lab's 4.22 one.
+The 4.22 image logs the older-console notice as `[WARNING] libredb-studio@<version> was built for an older version of Console`, where the OpenShift 4.22.14 console writes `[DEPRECATION WARNING]`; the suite allows both.
+
 ## Upstream
 
 The repository started from [openshift/console-plugin-template](https://github.com/openshift/console-plugin-template) branch `release-4.19` at `efc5c137b5acfd7a2a9580079dc16af59ba06176`, and took its unit and end-to-end test tooling from branch `release-4.22` at `1fdacd51f6c8e792b4d5b86cb0929617c3f22bfb`, both under the Apache License, Version 2.0 (see [NOTICE](NOTICE)).
