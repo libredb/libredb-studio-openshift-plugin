@@ -2,12 +2,21 @@
 
 This repository holds the OpenShift web console dynamic plugin `libredb-studio` for [LibreDB Studio](https://github.com/libredb/libredb-studio), the web-based SQL IDE.
 It lists the database resources of the cluster that the signed-in user can list, and opens each one in LibreDB Studio in a new tab.
-Status: in development, not yet released, and not ready for production use.
+Status: early 0.x release, shipped with LibreDB Studio 1.2.0, which installs and pins it.
 
 The plugin holds no credential and reads no Secret.
 It finds LibreDB Studio through the console link named `libredb-studio` that Studio's chart renders, and opens a database by Studio's connection id; Studio checks the user's access again before it connects.
 Clusters install the plugin through LibreDB Studio's Helm chart or operator.
 The chart under `charts/` in this repository is for development and the lab only.
+
+## Demo
+
+A walkthrough on OpenShift 4.22 with LibreDB Studio 1.2.0: the operator installed with the plugin enabled, the Databases page as a project member, a query as the signed-in user, and the query refused once the user's RoleBinding is removed.
+[Full walkthrough, 3.5 min](https://github.com/libredb/libredb-studio-openshift-plugin/releases/download/0.1.0/demo-libredb-studio-openshift.mp4) and [short version, 1 min](https://github.com/libredb/libredb-studio-openshift-plugin/releases/download/0.1.0/demo-libredb-studio-openshift-short.mp4).
+
+| A database the user may open | A database the user may not open, and why |
+| --- | --- |
+| ![Databases page, team-a](https://github.com/libredb/libredb-studio-openshift-plugin/releases/download/0.1.0/08-databases-team-a-dev-a.png) | ![Databases page, team-b](https://github.com/libredb/libredb-studio-openshift-plugin/releases/download/0.1.0/09-databases-team-b-reason-dev-a.png) |
 
 ## Supported databases
 
