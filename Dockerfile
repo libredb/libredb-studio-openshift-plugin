@@ -21,7 +21,7 @@ RUN node .yarn/releases/yarn-4.13.0.cjs install --immutable
 COPY --chown=1001:0 . .
 RUN node .yarn/releases/yarn-4.13.0.cjs build
 
-FROM registry.access.redhat.com/ubi9/nginx-120:latest@sha256:f96eae25ead81d4ab0233b1051b2d65881f2cf660b16e80c2e7b76ef1e966051
+FROM registry.access.redhat.com/ubi9/nginx-120:latest@sha256:80e541051bfbe3b5908a40e52fcf63dba9c0be980d3d1361fd71aa7ca960e1a8
 
 ARG VERSION
 LABEL name="libredb-studio-openshift-plugin" \
